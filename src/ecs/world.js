@@ -2,17 +2,19 @@
 // BỘ NÃO CỦA GAME - Toàn bộ logic nằm ở đây
 
 export class ECSWorld {
-    constructor() {
+    constructor(scene) {
         this.entities = new Map();
         this.systems = [];
+        this.scene = scene;
         // NEW: Query cache for performance
         this.queryCache = new Map();
     }
 
     addSystem(system) {
         this.systems.push(system);
-        // Pass the world instance to the system
+        // Pass the world instance and scene to the system
         system.world = this;
+        system.scene = this.scene;
     }
 
     createEntity() {

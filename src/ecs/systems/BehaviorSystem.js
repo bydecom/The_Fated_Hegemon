@@ -1,15 +1,20 @@
 // System xử lý hành vi của entities
 
 export class BehaviorSystem {
-    constructor(scene) {
+    constructor(scene = null) {
         this.scene = scene;
-        this.worldBounds = {
-            width: scene.scale.gameSize.width,
-            height: scene.scale.gameSize.height
-        };
+        this.worldBounds = null; // Sẽ được khởi tạo trong update
     }
 
     update(deltaTime, entities) {
+        // Khởi tạo worldBounds nếu chưa có
+        if (!this.worldBounds && this.scene) {
+            this.worldBounds = {
+                width: this.scene.scale.gameSize.width,
+                height: this.scene.scale.gameSize.height
+            };
+        }
+        
         // Xử lý theo batch để tối ưu hiệu suất
         const batchSize = 100; // Xử lý tất cả 100 entity
         let processed = 0;

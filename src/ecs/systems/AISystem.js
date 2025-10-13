@@ -1,7 +1,7 @@
 // System xử lý AI và ra quyết định
 
 export class AISystem {
-    constructor(scene) {
+    constructor(scene = null) {
         this.scene = scene;
     }
 
