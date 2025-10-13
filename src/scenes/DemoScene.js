@@ -1,18 +1,18 @@
 // Demo Scene với cơ chế điều khiển RTS
-import { ECSWorld } from '../../ecs/world.js';
-import { MovementSystem } from '../../ecs/systems/MovementSystem.js';
-import { RenderSystem } from '../../ecs/systems/RenderSystem.js';
-import { BehaviorSystem } from '../../ecs/systems/BehaviorSystem.js';
-import { AISystem } from '../../ecs/systems/AISystem.js';
-import { EntityFactory } from '../../ecs/EntityFactory.js';
+import { ECSWorld } from '../ecs/world.js';
+import { MovementSystem } from '../ecs/systems/MovementSystem.js';
+import { RenderSystem } from '../ecs/systems/RenderSystem.js';
+import { BehaviorSystem } from '../ecs/systems/BehaviorSystem.js';
+import { AISystem } from '../ecs/systems/AISystem.js';
+import { EntityFactory } from '../ecs/EntityFactory.js';
 
 // --- Components (lưu ý đường dẫn đã được sửa) ---
-import { Position } from '../../ecs/components/Position.js';
-import { Selectable } from '../../ecs/components/Selectable.js';
-import { Selected } from '../../ecs/components/Selected.js';
-import { PlayerUnit } from '../../ecs/components/PlayerUnit.js';
-import { MoveTarget } from '../../ecs/components/MoveTarget.js';
-import { Behavior } from '../../ecs/components/Behavior.js';
+import { Position } from '../ecs/components/Position.js';
+import { Selectable } from '../ecs/components/Selectable.js';
+import { Selected } from '../ecs/components/Selected.js';
+import { PlayerUnit } from '../ecs/components/PlayerUnit.js';
+import { MoveTarget } from '../ecs/components/MoveTarget.js';
+import { Behavior } from '../ecs/components/Behavior.js';
 
 // --- Constants ---
 const WORLD_WIDTH = 3200;
