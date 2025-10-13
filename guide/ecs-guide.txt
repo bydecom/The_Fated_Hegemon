@@ -1,0 +1,140 @@
+HƯỚNG DẪN SỬ DỤNG HỆ THỐNG ECS VỚI NHIỀU ENTITY CÓ HÀNH VI KHÁC NHAU
+================================================================
+
+1. CẤU TRÚC HỆ THỐNG ECS
+=======================
+
+Components (Các mảnh dữ liệu):
+- Position: Vị trí x, y
+- Velocity: Tốc độ di chuyển x, y
+- Health: Máu hiện tại và tối đa
+- Behavior: Loại hành vi (idle, patrol, wander, chase, flee)
+- Appearance: Màu sắc, kích thước, hình dạng
+- AI: Cấu hình AI và logic ra quyết định
+
+Systems (Logic xử lý):
+- MovementSystem: Cập nhật vị trí dựa trên velocity
+- RenderSystem: Vẽ sprite lên màn hình
+- BehaviorSystem: Xử lý các hành vi khác nhau
+- AISystem: Ra quyết định AI cho entity
+
+2. CÁC LOẠI ENTITY CÓ SẴN
+========================
+
+a) Random Entity (Entity ngẫu nhiên):
+- Màu sắc và hình dạng ngẫu nhiên
+- Hành vi thay đổi ngẫu nhiên giữa idle và wander
+- Tốc độ và thời gian phản ứng ngẫu nhiên
+
+b) Patrol Entity (Entity tuần tra):
+- Màu xanh dương, hình chữ nhật
+- Di chuyển theo các điểm patrol được định sẵn
+- Tốc độ cố định, phản ứng chậm
+
+c) Chaser Entity (Entity đuổi theo):
+- Màu đỏ, hình tam giác
+- Tự động tìm và đuổi theo entity gần nhất
+- Tốc độ cao, phản ứng nhanh
+
+d) Flee Entity (Entity chạy trốn):
+- Màu vàng, hình tròn
+- Chạy trốn khỏi entity gần nhất
+- Tốc độ rất cao, phản ứng nhanh
+
+e) Wanderer Entity (Entity lang thang):
+- Màu xanh lá, hình tròn
+- Di chuyển ngẫu nhiên theo khoảng thời gian
+- Tốc độ trung bình
+
+f) Static Entity (Entity tĩnh):
+- Màu xám, hình chữ nhật
+- Không di chuyển, chỉ đứng yên
+- Không có AI
+
+3. CÁCH SỬ DỤNG
+==============
+
+Trong DemoScene:
+- Nhấn SPACE: Tạo entity ngẫu nhiên mới
+- Nhấn R: Reset tất cả entity về trạng thái ban đầu
+
+Trong code:
+```javascript
+// Tạo entity mới
+const entityId = this.entityFactory.createRandomEntity(x, y);
+
+// Tạo entity tuần tra với các điểm patrol
+const patrolPoints = [
+    { x: 100, y: 100 },
+    { x: 700, y: 100 },
+    { x: 700, y: 500 },
+    { x: 100, y: 500 }
+];
+const patrolEntityId = this.entityFactory.createPatrolEntity(100, 100, patrolPoints);
+```
+
+4. TÙY CHỈNH HÀNH VI
+===================
+
+Để tạo entity với hành vi tùy chỉnh:
+
+```javascript
+// Tạo entity cơ bản
+const entityId = this.ecsWorld.createEntity();
+
+// Thêm các component
+this.ecsWorld.addComponent(entityId, 'position', new Position(x, y));
+this.ecsWorld.addComponent(entityId, 'velocity', new Velocity());
+this.ecsWorld.addComponent(entityId, 'appearance', new Appearance(0xff0000, 25, 'circle'));
+this.ecsWorld.addComponent(entityId, 'behavior', new Behavior('wander', {
+    speed: 80,
+    interval: 1500
+}));
+this.ecsWorld.addComponent(entityId, 'ai', new AI('wander', {
+    speed: 80,
+    reactionTime: 1500
+}));
+```
+
+5. THÊM HÀNH VI MỚI
+==================
+
+Để thêm hành vi mới:
+
+1. Cập nhật BehaviorSystem.js:
+```javascript
+case 'newBehavior':
+    this.handleNewBehavior(behavior, position, velocity, ai, deltaTime);
+    break;
+```
+
+2. Thêm method xử lý:
+```javascript
+handleNewBehavior(behavior, position, velocity, ai, deltaTime) {
+    // Logic xử lý hành vi mới
+}
+```
+
+3. Cập nhật AISystem.js nếu cần AI cho hành vi mới
+
+6. LƯU Ý QUAN TRỌNG
+==================
+
+- Mỗi entity cần có ít nhất Position component để hiển thị
+- Velocity component cần thiết cho entity di chuyển
+- Behavior và AI component hoạt động cùng nhau
+- RenderSystem tự động tạo sprite dựa trên Appearance component
+- Tất cả system chạy song song trong mỗi frame
+
+7. MỞ RỘNG HỆ THỐNG
+==================
+
+Để thêm component mới:
+1. Tạo file component mới trong src/ecs/components/
+2. Thêm logic xử lý trong system tương ứng
+3. Cập nhật EntityFactory để sử dụng component mới
+
+Để thêm system mới:
+1. Tạo file system mới trong src/ecs/systems/
+2. Đăng ký system trong ECSWorld
+3. Implement method update(deltaTime, entities)

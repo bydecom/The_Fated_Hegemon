@@ -1,0 +1,317 @@
+Ôi, xin lỗi bạn nhiều\! Bạn hoàn toàn nói đúng. Trong các bước cài đặt, tôi đã hướng dẫn bạn chọn TypeScript nhưng lại quên mất rằng cuộc thảo luận của chúng ta tập trung vào việc bạn quen thuộc với JavaScript hơn.
+
+Thành thật xin lỗi vì sự nhầm lẫn này. Chúng ta sẽ sửa lại ngay lập tức. Toàn bộ kế hoạch sẽ được viết lại bằng **100% JavaScript thuần túy (Vanilla JS)**. Cảm ơn bạn đã chỉ ra nhé\!
+
+Đây là kế hoạch chi tiết đã được điều chỉnh hoàn toàn cho JavaScript.
+
+-----
+
+### **Lưu ý quan trọng khi tạo Project**
+
+Khi bạn chạy lệnh `npm create vite@latest`, hãy đảm bảo bạn chọn đúng:
+
+  * `✔ Select a framework: ›` **Vanilla**
+  * `✔ Select a variant: ›` **JavaScript** (Không phải TypeScript)
+
+-----
+
+### **Tuần 1: "Hello, World\!" - Vẽ Entity đầu tiên lên màn hình**
+
+**Mục tiêu:** Kết nối thành công Phaser với ECS bằng JavaScript. Tạo ra một thực thể (entity) đầu tiên và làm cho nó xuất hiện trên màn hình.
+
+#### **Các bước thực hiện:**
+
+**1. Tạo Component đầu tiên:**
+
+  * Trong `src/ecs/components/`, tạo file `Position.js`:
+
+    ```javascript
+    // src/ecs/components/Position.js
+    import { Component } from 'gecs';
+
+    export class Position extends Component {
+        static type = 'position';
+        x = 0;
+        y = 0;
+    }
+    ```
+
+  * Tạo file `Renderable.js`:
+
+    ```javascript
+    // src/ecs/components/Renderable.js
+    import { Component } from 'gecs';
+
+    export class Renderable extends Component {
+        static type = 'renderable';
+        // assetKey là tên ảnh bạn đã load trong PreloaderScene
+        assetKey = '';
+        // Chúng ta sẽ lưu sprite của Phaser ở đây để truy cập lại
+        sprite = null;
+    }
+    ```
+
+**2. Tạo System đầu tiên:**
+
+  * Trong `src/ecs/systems/`, tạo file `RenderSystem.js`.
+
+    ```javascript
+    // src/ecs/systems/RenderSystem.js
+    import { System } from 'gecs';
+    import { Position } from '../components/Position.js';
+    import { Renderable } from '../components/Renderable.js';
+
+    export class RenderSystem extends System {
+        // Tham chiếu đến Scene của Phaser để có thể vẽ
+        scene;
+
+        constructor(scene) {
+            super();
+            this.scene = scene;
+        }
+
+        // System này sẽ chạy trên các entity có cả hai component này
+        $ = {
+            entities: this.query.all(Position, Renderable)
+        };
+
+        // Hàm update sẽ chạy mỗi frame
+        update(delta) {
+            for (const entity of this.$.entities) {
+                const position = entity.get(Position);
+                const renderable = entity.get(Renderable);
+
+                // Nếu sprite chưa được tạo, hãy tạo nó
+                if (!renderable.sprite) {
+                    renderable.sprite = this.scene.add.sprite(
+                        position.x,
+                        position.y,
+                        renderable.assetKey
+                    );
+                } else {
+                    // Nếu đã có, chỉ cần cập nhật vị trí
+                    renderable.sprite.setPosition(position.x, position.y);
+                }
+            }
+        }
+    }
+    ```
+
+**3. Kết nối mọi thứ trong `GameScene.js`:**
+
+  * Sửa lại `src/scenes/GameScene.js`
+
+    ```javascript
+    // src/scenes/GameScene.js
+    import Phaser from 'phaser';
+    import { World } from 'gecs';
+    import { Position } from '../ecs/components/Position.js';
+    import { Renderable } from '../ecs/components/Renderable.js';
+    import { RenderSystem } from '../ecs/systems/RenderSystem.js';
+
+    export class GameScene extends Phaser.Scene {
+        world;
+
+        constructor() {
+            super('GameScene');
+        }
+
+        create() {
+            this.world = new World();
+
+            // Đăng ký RenderSystem và truyền 'this' (chính là GameScene) vào
+            this.world.registerSystem(new RenderSystem(this));
+
+            // Tạo entity Lãnh chúa đầu tiên!
+            this.world.create({
+                // Đặt tên để dễ debug
+                $: 'PlayerLord',
+                // Gắn các component cho nó
+                position: { x: 400, y: 300 },
+                renderable: { assetKey: 'player_base' } // Tên asset đã load
+            });
+
+            console.log('GameScene created. PlayerLord entity spawned.');
+        }
+
+        update(time, delta) {
+            if (!this.world) return;
+            this.world.update(delta);
+        }
+    }
+    ```
+
+**Kết quả tuần 1:** Khi chạy game, bạn sẽ thấy hình ảnh `player_base` của mình xuất hiện giữa màn hình. Nền tảng Phaser + ECS + JavaScript đã sẵn sàng\!
+
+-----
+
+### **Tuần 2: Thế giới Chuyển động**
+
+**Mục tiêu:** Làm cho entity di chuyển và cho phép người chơi tương tác với nó thông qua chuột.
+
+#### **Các bước thực hiện:**
+
+**1. Tạo thêm Component:**
+
+  * `src/ecs/components/Movable.js`:
+
+    ```javascript
+    import { Component } from 'gecs';
+    export class Movable extends Component {
+        static type = 'movable';
+        velocityX = 0;
+        velocityY = 0;
+    }
+    ```
+
+  * `src/ecs/components/PlayerControllable.js`:
+
+    ```javascript
+    import { Component } from 'gecs';
+    // Component này không cần dữ liệu, chỉ dùng để đánh dấu
+    export class PlayerControllable extends Component {
+        static type = 'playerControllable';
+    }
+    ```
+
+**2. Tạo `MovementSystem.js`:**
+
+  * Trong `src/ecs/systems/`.
+
+    ```javascript
+    import { System } from 'gecs';
+    import { Position } from '../components/Position.js';
+    import { Movable } from '../components/Movable.js';
+
+    export class MovementSystem extends System {
+        $ = {
+            movables: this.query.all(Position, Movable)
+        };
+
+        update(delta) {
+            for (const entity of this.$.movables) {
+                const pos = entity.get(Position);
+                const mov = entity.get(Movable);
+                // delta/1000 để chuyển từ mili giây sang giây
+                pos.x += mov.velocityX * (delta / 1000);
+                pos.y += mov.velocityY * (delta / 1000);
+            }
+        }
+    }
+    ```
+
+**3. Cập nhật `GameScene.js`:**
+
+  * Đăng ký `MovementSystem` và thêm logic điều khiển bằng chuột.
+
+    ```javascript
+    // ... import thêm các component và system mới ...
+    import { Movable } from '../ecs/components/Movable.js';
+    import { PlayerControllable } from '../ecs/components/PlayerControllable.js';
+    import { MovementSystem } from '../ecs/systems/MovementSystem.js';
+
+    export class GameScene extends Phaser.Scene {
+        // ...
+        create() {
+            this.world = new World();
+            this.world.registerSystem(new RenderSystem(this));
+            // Đăng ký system mới
+            this.world.registerSystem(new MovementSystem());
+
+            // Gắn thêm component cho Lãnh chúa
+            this.world.create({
+                $: 'PlayerLord',
+                position: { x: 400, y: 300 },
+                renderable: { assetKey: 'player_base' },
+                movable: { velocityX: 50, velocityY: 0 },
+                playerControllable: {}
+            });
+
+            // Logic điều khiển chuột
+            this.input.on('pointerdown', (pointer) => {
+                const playerEntity = this.world.find(e => e.has(PlayerControllable));
+                if (playerEntity) {
+                    const mov = playerEntity.get(Movable);
+                    const pos = playerEntity.get(Position);
+                    const dirX = pointer.worldX - pos.x;
+                    const dirY = pointer.worldY - pos.y;
+                    const length = Math.sqrt(dirX * dirX + dirY * dirY);
+                    if (length > 0) { // Tránh chia cho 0
+                        mov.velocityX = (dirX / length) * 200; // Tốc độ 200 pixel/giây
+                        mov.velocityY = (dirY / length) * 200;
+                    }
+                }
+            });
+        }
+        // ... update() giữ nguyên
+    }
+    ```
+
+**Kết quả tuần 2:** Entity của bạn sẽ tự động trôi sang phải. Khi bạn click chuột, nó sẽ đổi hướng và di chuyển về phía con trỏ.
+
+-----
+
+### **Tuần 3 & 4: Xây dựng Thế giới (Chunking & Procedural Generation)**
+
+Phần này gần như hoàn toàn là logic JavaScript thuần túy nên sẽ giống hệt với kế hoạch trước.
+
+**1. Cài đặt thư viện Noise:**
+
+  * Trong terminal, gõ: `npm install simplex-noise`
+
+**2. Tạo `WorldManager.js`:**
+
+  * Trong `src/managers/`, tạo file `WorldManager.js`.
+
+    ```javascript
+    // src/managers/WorldManager.js
+    import { createNoise2D } from 'simplex-noise';
+
+    export function generateChunkData(chunkX, chunkY) {
+        const CHUNK_SIZE = 16;
+        const TILE_SIZE = 64;
+        const noise2D = createNoise2D(); // Bạn có thể truyền một "seed" vào đây
+        const chunkData = [];
+
+        for (let y = 0; y < CHUNK_SIZE; y++) {
+            const row = [];
+            for (let x = 0; x < CHUNK_SIZE; x++) {
+                const worldX = chunkX * CHUNK_SIZE + x;
+                const worldY = chunkY * CHUNK_SIZE + y;
+                const noiseValue = noise2D(worldX * 0.1, worldY * 0.1);
+                let tileType = 'grass';
+                if (noiseValue < -0.3) tileType = 'water';
+                else if (noiseValue > 0.5) tileType = 'mountain';
+                row.push(tileType);
+            }
+            chunkData.push(row);
+        }
+        return chunkData;
+    }
+    ```
+
+**3. Render một Chunk tĩnh trong `GameScene.js` để kiểm tra:**
+
+  * Trong `PreloaderScene`, hãy load thêm các ảnh `grass.png`, `water.png`, `mountain.png`.
+
+  * Trong `GameScene.js`, hãy tạm thời bỏ code tạo Lãnh chúa đi và thay bằng code render map.
+
+    ```javascript
+    // Trong create() của GameScene.js
+    import { generateChunkData } from '../managers/WorldManager.js';
+
+    const chunkData = generateChunkData(0, 0);
+    const CHUNK_SIZE = 16;
+    const TILE_SIZE = 64;
+    for (let y = 0; y < CHUNK_SIZE; y++) {
+        for (let x = 0; x < CHUNK_SIZE; x++) {
+            const tileType = chunkData[y][x];
+            // Load các ảnh 'grass', 'water', 'mountain' trước nhé
+            this.add.image(x * TILE_SIZE, y * TILE_SIZE, tileType).setOrigin(0, 0);
+        }
+    }
+    ```
+
+**4. (Tuần 4) Triển khai Chunking động:** Đây là phần nâng cao, bạn sẽ kết hợp `WorldManager` với camera hoặc vị trí của người chơi để tải và gỡ các chunk một cách linh động.
+
+-----
