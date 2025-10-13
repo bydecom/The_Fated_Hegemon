@@ -29,6 +29,14 @@ export class RenderSystem {
                 }
             }
         });
+        
+        // Xóa sprite của entity đã bị xóa
+        this.sprites.forEach((sprite, entityId) => {
+            if (!entities.has(entityId)) {
+                sprite.destroy();
+                this.sprites.delete(entityId);
+            }
+        });
     }
 
     createSprite(position, health, appearance) {

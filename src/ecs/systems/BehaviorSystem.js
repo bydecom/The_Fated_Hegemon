@@ -10,7 +10,16 @@ export class BehaviorSystem {
     }
 
     update(deltaTime, entities) {
-        entities.forEach((components, entityId) => {
+        // Xử lý theo batch để tối ưu hiệu suất
+        const batchSize = 100; // Xử lý tất cả 100 entity
+        let processed = 0;
+        
+        for (const [entityId, components] of entities) {
+            if (processed >= batchSize) {
+                // Tạm dừng để tránh block UI
+                break;
+            }
+            
             const behavior = components.get('behavior');
             const position = components.get('position');
             const velocity = components.get('velocity');
@@ -18,8 +27,9 @@ export class BehaviorSystem {
 
             if (behavior && position && velocity) {
                 this.processBehavior(behavior, position, velocity, ai, deltaTime);
+                processed++;
             }
-        });
+        }
     }
 
     processBehavior(behavior, position, velocity, ai, deltaTime) {

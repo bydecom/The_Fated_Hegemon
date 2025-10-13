@@ -6,15 +6,24 @@ export class AISystem {
     }
 
     update(deltaTime, entities) {
-        entities.forEach((components, entityId) => {
+        // Xử lý theo batch để tối ưu hiệu suất
+        const batchSize = 100; // Xử lý tất cả 100 entity
+        let processed = 0;
+        
+        for (const [entityId, components] of entities) {
+            if (processed >= batchSize) {
+                break;
+            }
+            
             const ai = components.get('ai');
             const behavior = components.get('behavior');
             const position = components.get('position');
 
             if (ai && behavior && position) {
                 this.processAI(ai, behavior, position, entities, deltaTime);
+                processed++;
             }
-        });
+        }
     }
 
     processAI(ai, behavior, position, allEntities, deltaTime) {

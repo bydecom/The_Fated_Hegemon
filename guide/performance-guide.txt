@@ -1,0 +1,111 @@
+HƯỚNG DẪN TỐI ƯU HIỆU SUẤT CHO 1000 ENTITY
+==========================================
+
+1. TỔNG QUAN
+============
+
+Demo scene hiện tại tạo 100 entity với các hành vi khác nhau:
+- 40% Entity lang thang (màu xanh lá, hình tròn)
+- 30% Entity ngẫu nhiên (màu sắc ngẫu nhiên, kích thước ngẫu nhiên)
+- 15% Entity đuổi theo (màu đỏ, hình tam giác)
+- 10% Entity chạy trốn (màu vàng, hình tròn)
+- 5% Entity tĩnh (màu xám, hình chữ nhật)
+
+2. TỐI ƯU HÓA HIỆU SUẤT
+======================
+
+a) Batch Processing:
+- BehaviorSystem: Xử lý 100 entity mỗi frame
+- AISystem: Xử lý 100 entity mỗi frame
+- Xử lý tất cả entity trong một frame
+
+b) Sprite Management:
+- Tự động xóa sprite của entity đã bị xóa
+- Sử dụng Map để quản lý sprite hiệu quả
+
+c) Entity Size:
+- Giảm kích thước entity (6-12px) để tăng hiệu suất
+- Sử dụng hình dạng đơn giản
+
+3. MONITORING HIỆU SUẤT
+======================
+
+- FPS Counter: Hiển thị FPS real-time
+- Màu sắc FPS:
+  * Đỏ: FPS < 30 (hiệu suất kém)
+  * Cam: FPS 30-45 (hiệu suất trung bình)
+  * Xanh: FPS > 45 (hiệu suất tốt)
+
+4. CÁCH TỐI ƯU THÊM
+==================
+
+a) Thay đổi số lượng entity:
+```javascript
+// Thay đổi số lượng entity trong createEntities()
+for (let i = 0; i < 100; i++) { // Hiện tại là 100 entity
+```
+
+b) Điều chỉnh batch size:
+```javascript
+// Trong BehaviorSystem.js và AISystem.js
+const batchSize = 100; // Xử lý tất cả 100 entity
+```
+
+c) Giảm tần suất AI:
+```javascript
+// Trong AI component
+reactionTime: Phaser.Math.Between(2000, 5000) // Tăng thời gian phản ứng
+```
+
+d) Sử dụng Object Pooling:
+- Tái sử dụng entity thay vì tạo mới
+- Giảm garbage collection
+
+5. TROUBLESHOOTING
+=================
+
+Nếu FPS thấp:
+1. Giảm số lượng entity xuống 50
+2. Tăng thời gian phản ứng AI
+3. Giảm kích thước entity
+4. Tắt một số system không cần thiết
+
+Nếu game bị lag:
+1. Kiểm tra console để xem có lỗi không
+2. Giảm số lượng entity xuống 50
+3. Tăng thời gian phản ứng AI
+
+6. MOBILE OPTIMIZATION
+=====================
+
+Trên mobile:
+- Giảm số lượng entity xuống 50-75
+- Sử dụng batch size nhỏ hơn (25-50)
+- Giảm kích thước entity (4-8px)
+- Tắt một số hiệu ứng phức tạp
+
+7. CUSTOMIZATION
+================
+
+Để thay đổi số lượng entity:
+```javascript
+// Trong createEntities() method
+for (let i = 0; i < 100; i++) { // Thay đổi số này
+```
+
+Để thay đổi tỷ lệ entity:
+```javascript
+// Thay đổi các con số trong if conditions
+if (entityType <= 40) { // 40% entity lang thang
+if (entityType <= 70) { // 30% entity ngẫu nhiên
+// ...
+```
+
+8. PERFORMANCE TIPS
+==================
+
+- Sử dụng requestAnimationFrame thay vì setInterval
+- Tránh tạo object mới trong update loop
+- Sử dụng object pooling cho entity
+- Tối ưu collision detection
+- Sử dụng spatial partitioning cho entity lớn
