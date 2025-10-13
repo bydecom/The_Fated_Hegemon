@@ -1,6 +1,6 @@
 // Điểm khởi đầu, cấu hình và khởi chạy game Phaser
 import './style.css';
-import { DemoScene } from './scenes/DemoScene.js';
+import { DemoScene } from './scenes/Demo/RTS_Demoscene.js';
 
 // Hàm kiểm tra thiết bị di động
 function isMobile() {

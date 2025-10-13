@@ -3,17 +3,18 @@
 
 export class ECSWorld {
     constructor() {
-        // TODO: Khởi tạo ECS World
         this.entities = new Map();
         this.systems = [];
+        // NEW: Query cache for performance
+        this.queryCache = new Map();
     }
 
-    // TODO: Đăng ký các System
     addSystem(system) {
         this.systems.push(system);
+        // Pass the world instance to the system
+        system.world = this;
     }
 
-    // TODO: Quản lý Entity và Component
     createEntity() {
         const id = Math.random().toString(36).substr(2, 9);
         this.entities.set(id, new Map());
@@ -23,14 +24,55 @@ export class ECSWorld {
     addComponent(entityId, componentName, componentData) {
         if (this.entities.has(entityId)) {
             this.entities.get(entityId).set(componentName, componentData);
+            // Invalidate cache when components change
+            this.queryCache.clear();
+        }
+    }
+    
+    removeComponent(entityId, componentName) {
+        if (this.entities.has(entityId)) {
+            this.entities.get(entityId).delete(componentName);
+            this.queryCache.clear();
         }
     }
 
     update(deltaTime) {
         this.systems.forEach(system => {
             if (system.update) {
+                // Pass all entities to the system
                 system.update(deltaTime, this.entities);
             }
         });
+    }
+
+    // NEW: Powerful query system
+    query = {
+        all: (...componentClasses) => {
+            const key = componentClasses.map(c => c.name).join(',');
+            if (this.queryCache.has(key)) {
+                return this.queryCache.get(key);
+            }
+
+            const componentNames = componentClasses.map(c => {
+                // simple name mapping for now
+                const name = c.name.charAt(0).toLowerCase() + c.name.slice(1);
+                return name;
+            });
+            
+            const results = [];
+            for (const [id, components] of this.entities.entries()) {
+                const hasAll = componentNames.every(name => components.has(name));
+                if (hasAll) {
+                    // Create a simple entity-like object for convenience
+                    results.push({
+                        id,
+                        get: (componentClass) => components.get(componentClass.name.charAt(0).toLowerCase() + componentClass.name.slice(1)),
+                        has: (componentClass) => components.has(componentClass.name.charAt(0).toLowerCase() + componentClass.name.slice(1)),
+                    });
+                }
+            }
+            this.queryCache.set(key, { get: () => results });
+            return { get: () => results };
+        }
     }
 }
