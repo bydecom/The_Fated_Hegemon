@@ -6,48 +6,53 @@ export class AISystem {
     }
 
     update(deltaTime, entities) {
-        // Xử lý theo batch để tối ưu hiệu suất
-        const batchSize = 100; // Xử lý tất cả 100 entity
-        let processed = 0;
-        
         for (const [entityId, components] of entities) {
-            if (processed >= batchSize) {
-                break;
-            }
-            
             const ai = components.get('ai');
-            const behavior = components.get('behavior');
-            const position = components.get('position');
-
-            if (ai && behavior && position) {
-                this.processAI(ai, behavior, position, entities, deltaTime);
-                processed++;
+            if (ai && ai.canMakeDecision(deltaTime)) {
+                // Chỉ xử lý AI cho các đơn vị có hành vi 'chase'
+                if (ai.aiType === 'chase') {
+                    this.processChaseAI(entityId, components, entities);
+                }
+                ai.resetDecisionTimer();
             }
         }
     }
 
-    processAI(ai, behavior, position, allEntities, deltaTime) {
-        if (!ai.canMakeDecision(deltaTime)) return;
+    // ⭐ THAY THẾ HÀM processAI CŨ BẰNG HÀM NÀY
+    processChaseAI(chaserId, chaserComponents, allEntities) {
+        const ai = chaserComponents.get('ai');
+        const position = chaserComponents.get('position');
+        const behavior = chaserComponents.get('behavior');
+        
+        let closestTarget = null;
+        let minDistance = ai.config.detectionRange;
 
-        switch (ai.aiType) {
-            case 'random':
-                this.randomBehavior(behavior, ai);
-                break;
-            case 'patrol':
-                this.patrolBehavior(behavior, ai);
-                break;
-            case 'chase':
-                this.chaseBehavior(ai, behavior, position, allEntities);
-                break;
-            case 'flee':
-                this.fleeBehavior(ai, behavior, position, allEntities);
-                break;
-            case 'wander':
-                this.wanderBehavior(behavior, ai);
-                break;
+        // Tìm kiếm đơn vị người chơi gần nhất
+        for (const [entityId, components] of allEntities) {
+            // Chỉ nhắm vào đơn vị của người chơi (playerUnit)
+            if (components.has('playerUnit')) {
+                const targetPos = components.get('position');
+                const distance = Phaser.Math.Distance.Between(position.x, position.y, targetPos.x, targetPos.y);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestTarget = entityId;
+                }
+            }
         }
-
-        ai.resetDecisionTimer();
+        
+        // Cập nhật trạng thái AI và hành vi
+        if (closestTarget) {
+            // Tìm thấy mục tiêu trong tầm -> Đuổi theo
+            ai.target = closestTarget; // Lưu ID của mục tiêu
+            behavior.setBehavior('chase');
+        } else {
+            // Không có mục tiêu trong tầm -> Quay về lang thang
+            ai.target = null;
+            if (behavior.type === 'chase') { // Chỉ chuyển nếu đang đuổi
+                behavior.setBehavior('wander');
+            }
+        }
     }
 
     randomBehavior(behavior, ai) {

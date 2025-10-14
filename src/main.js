@@ -1,59 +1,21 @@
-// Điểm khởi đầu, cấu hình và khởi chạy game Phaser
+// src/main.js
 import './style.css';
 import { DemoScene } from './scenes/DemoScene.js';
-
-// Hàm kiểm tra thiết bị di động
-function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-// Hàm lấy kích thước màn hình tối ưu
-function getOptimalSize() {
-    const isMobileDevice = isMobile();
-    const screenWidth = window.innerWidth;
-    const screenHeight = window.innerHeight;
-    
-    if (isMobileDevice) {
-        // Trên mobile, ưu tiên màn hình ngang
-        const isLandscape = screenWidth > screenHeight;
-        
-        if (isLandscape) {
-            // Đã ở màn hình ngang, sử dụng toàn bộ màn hình
-            return {
-                width: screenWidth,
-                height: screenHeight,
-                orientation: 'landscape'
-            };
-        } else {
-            // Ở màn hình dọc, xoay để hiển thị màn hình ngang
-            return {
-                width: screenHeight,
-                height: screenWidth,
-                orientation: 'portrait'
-            };
-        }
-    } else {
-        // Trên desktop, sử dụng kích thước màn hình hiện tại
-        return {
-            width: screenWidth,
-            height: screenHeight,
-            orientation: screenWidth > screenHeight ? 'landscape' : 'portrait'
-        };
-    }
-}
-
-// Lấy kích thước tối ưu
-const optimalSize = getOptimalSize();
+import { PauseScene } from './scenes/PauseScene.js'; // ⭐ IMPORT SCENE MỚI
+import { UIScene } from './scenes/UIScene.js'; // ⭐ IMPORT SCENE MỚI
 
 // Cấu hình Phaser
 const config = {
     type: Phaser.AUTO,
-    width: optimalSize.width,
-    height: optimalSize.height,
+    // ⭐ SỬA LỖI: Để kích thước tự động lấp đầy màn hình
+    width: window.innerWidth,
+    height: window.innerHeight,
     parent: 'app',
     backgroundColor: '#2c3e50',
     scene: [
-        DemoScene
+        DemoScene,
+        PauseScene,
+        UIScene // ⭐ THÊM VÀO DANH SÁCH
     ],
     physics: {
         default: 'arcade',
@@ -63,40 +25,35 @@ const config = {
         }
     },
     scale: {
+        // ⭐ SỬA LỖI QUAN TRỌNG NHẤT: Chuyển về chế độ RESIZE
         mode: Phaser.Scale.RESIZE,
         autoCenter: Phaser.Scale.CENTER_BOTH,
-        min: {
-            width: 320,
-            height: 240
-        },
-        max: {
-            width: optimalSize.width,
-            height: optimalSize.height
-        }
     },
-    input: {
-        activePointers: 3 // Hỗ trợ đa chạm
-    }
+    // ... (input config giữ nguyên)
 };
 
 // Khởi chạy game
 const game = new Phaser.Game(config);
 
-// Xử lý xoay màn hình và resize
+// ⭐ BƯỚC 2: ĐƠN GIẢN HÓA EVENT LISTENER
+// Không cần gọi game.scale.resize() nữa, Phaser sẽ tự động xử lý với chế độ FIT.
+// Chúng ta chỉ giữ lại để xử lý logic xoay màn hình trên mobile.
 window.addEventListener('resize', () => {
-    const newSize = getOptimalSize();
-    game.scale.resize(newSize.width, newSize.height);
+    // Có thể trống hoặc bạn có thể thêm logic UI đặc biệt ở đây nếu cần
 });
 
 // Xử lý xoay màn hình trên mobile
 window.addEventListener('orientationchange', () => {
     setTimeout(() => {
-        const newSize = getOptimalSize();
-        game.scale.resize(newSize.width, newSize.height);
-        
         // Thông báo cho user xoay màn hình nếu cần
-        if (isMobile() && newSize.orientation === 'portrait') {
-            showOrientationMessage();
+        if (isMobile()) {
+            const screenWidth = window.innerWidth;
+            const screenHeight = window.innerHeight;
+            const isLandscape = screenWidth > screenHeight;
+            
+            if (!isLandscape) {
+                showOrientationMessage();
+            }
         }
     }, 100);
 });
@@ -143,8 +100,14 @@ function showOrientationMessage() {
 }
 
 // Kiểm tra và hiển thị thông báo xoay màn hình khi khởi động
-if (isMobile() && optimalSize.orientation === 'portrait') {
-    setTimeout(showOrientationMessage, 1000);
+if (isMobile()) {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const isLandscape = screenWidth > screenHeight;
+    
+    if (!isLandscape) {
+        setTimeout(showOrientationMessage, 1000);
+    }
 }
 
 // Hàm yêu cầu full screen

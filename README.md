@@ -1,118 +1,207 @@
- # The Sovereign's Gambit - Project Documentation
+ # The Fated Hegemon - Project Documentation
 
-*A 4X Survival Roguelike inspired by "Toàn Dân Lĩnh Chủ"*
+*Một game RTS (Real-Time Strategy) được phát triển bằng Phaser 3 với hệ thống ECS*
 
 ## 1. Tổng quan Dự án (Project Overview)
 
-The Fated Hegemon là một game chiến thuật sinh tồn 4X (eXplore, eXpand, eXploit, eXterminate) được phát triển bằng Phaser 3. Lấy cảm hứng từ thể loại truyện "Toàn Dân Lĩnh Chủ", người chơi sẽ được đưa vào một thế giới xa lạ, phải xây dựng đế chế của mình từ hai bàn tay trắng.
+The Fated Hegemon là một game chiến thuật thời gian thực được phát triển bằng Phaser 3 và JavaScript. Game sử dụng kiến trúc Entity Component System (ECS) để quản lý hàng ngàn đơn vị với hiệu năng cao, kết hợp với các hệ thống quản lý thông minh như Fog of War, Pathfinding và Grid-based movement.
 
-### Điểm nhấn gameplay độc đáo bao gồm:
+### Các tính năng đã triển khai:
 
-- **Hệ thống "Roll" (Gacha)**: Thay vì cây công nghệ cố định, mọi đơn vị và công trình đều đến từ những lượt "roll" ngẫu nhiên.
-- **Thế giới Sống**: Các lãnh chúa AI khác sẽ tự phát triển, tương tác và cạnh tranh với người chơi ngay cả khi không có mặt.
-- **Wave Thủ thành Phân tách**: Khi Wave ập đến, lãnh địa chính của người chơi sẽ bị kéo vào một không gian riêng để chiến đấu, trong khi các lãnh thổ ngoại vi vẫn có nguy cơ bị tấn công ở thế giới chính.
+- **Hệ thống ECS hoàn chỉnh**: Quản lý entities, components và systems một cách hiệu quả
+- **Fog of War**: Hệ thống sương mù chiến thuật với 3 trạng thái (UNSEEN, SEEN, VISIBLE)
+- **Pathfinding A***: Tìm đường thông minh với thuật toán A* và grid-based navigation
+- **RTS Controls**: Chọn đơn vị, di chuyển camera, kéo chọn nhiều đơn vị
+- **AI Behavior System**: Hệ thống hành vi AI cho đơn vị địch với các trạng thái khác nhau
+- **Minimap**: Bản đồ thu nhỏ hiển thị vị trí đơn vị và khung nhìn camera
+- **UI System**: Giao diện người dùng với portrait view, command cards và minimap
 
 ## 2. Công nghệ Cốt lõi (Core Technologies)
 
-- **Game Engine**: Phaser 3 - Một framework làm game 2D mạnh mẽ và linh hoạt cho nền tảng web.
-- **Ngôn ngữ**: TypeScript - Giúp quản lý code của một dự án lớn một cách chặt chẽ và an toàn.
-- **Kiến trúc Logic**: Entity Component System (ECS) - Sử dụng thư viện gecs để quản lý hàng ngàn đơn vị với hiệu năng cao.
-- **Công cụ Build**: Vite - Cung cấp một môi trường phát triển siêu nhanh với server ảo và Hot-Module Replacement.
-- **Quản lý phiên bản Node**: NVM (Node Version Manager) - Giúp đảm bảo môi trường Node.js luôn tương thích.
+- **Game Engine**: Phaser 3 - Framework làm game 2D mạnh mẽ và linh hoạt cho nền tảng web
+- **Ngôn ngữ**: JavaScript (ES6+) - Ngôn ngữ chính để phát triển game
+- **Kiến trúc Logic**: Entity Component System (ECS) - Kiến trúc tùy chỉnh để quản lý hàng ngàn đơn vị với hiệu năng cao
+- **Công cụ Build**: Vite - Môi trường phát triển nhanh với Hot-Module Replacement
+- **Pathfinding**: Thuật toán A* tùy chỉnh với grid-based navigation
+- **Rendering**: RenderTexture cho minimap và Graphics API cho các đối tượng game
 
 ## 3. Cấu trúc Dự án (Project Structure)
 
-Đây là bản đồ của toàn bộ project. Việc tuân thủ cấu trúc này là cực kỳ quan trọng để giữ cho code luôn sạch sẽ và dễ quản lý.
+Cấu trúc thực tế của dự án hiện tại:
 
 ```
-the-sovereigns-gambit/
+the-fated-hegemon/
 │
-├── public/                 # Nơi chứa tất cả các assets tĩnh (ảnh, âm thanh)
+├── public/                 # Assets tĩnh (ảnh, âm thanh)
 │   └── assets/
 │       ├── images/
 │       └── audio/
 │
-├── src/                    # Nơi chứa toàn bộ mã nguồn TypeScript của game
+├── src/                    # Mã nguồn JavaScript của game
 │   │
-│   ├── ecs/                # BỘ NÃO CỦA GAME - Toàn bộ logic nằm ở đây
-│   │   ├── components/     # Các mảnh dữ liệu (Vị trí, Máu, Tốc độ...)
-│   │   ├── systems/        # Logic xử lý dữ liệu (Hệ thống di chuyển, render...)
-│   │   └── world.ts        # File trung tâm để khởi tạo và đăng ký các System
+│   ├── ecs/                # HỆ THỐNG ECS - Trái tim của game
+│   │   ├── components/     # Components (dữ liệu)
+│   │   │   ├── AI.js           # Component AI cho đơn vị địch
+│   │   │   ├── Appearance.js   # Component vẻ ngoài (màu sắc, kích thước)
+│   │   │   ├── Behavior.js     # Component hành vi (trạng thái, mục tiêu)
+│   │   │   ├── Building.js     # Component cho công trình
+│   │   │   ├── Health.js       # Component máu và sức khỏe
+│   │   │   ├── MoveTarget.js   # Component mục tiêu di chuyển
+│   │   │   ├── PlayerUnit.js   # Component đánh dấu đơn vị người chơi
+│   │   │   ├── Position.js     # Component vị trí (x, y)
+│   │   │   ├── Selectable.js   # Component cho phép chọn
+│   │   │   ├── Selected.js     # Component trạng thái được chọn
+│   │   │   └── Velocity.js     # Component vận tốc (vx, vy)
+│   │   ├── systems/        # Systems (logic xử lý)
+│   │   │   ├── AISystem.js     # Hệ thống AI cho đơn vị địch
+│   │   │   ├── BehaviorSystem.js # Hệ thống hành vi và trạng thái
+│   │   │   ├── CollisionSystem.js # Hệ thống va chạm
+│   │   │   ├── MovementSystem.js # Hệ thống di chuyển
+│   │   │   └── RenderSystem.js  # Hệ thống vẽ và hiển thị
+│   │   ├── EntityFactory.js # Factory tạo entities với components
+│   │   └── world.js        # ECS World - quản lý entities và systems
 │   │
-│   ├── managers/           # Các module quản lý cấp cao
-│   │   ├── WorldManager.ts # Logic tạo map, quản lý chunk...
-│   │   └── EventManager.ts # Quản lý các sự kiện ngoài màn hình
+│   ├── managers/           # Các manager cấp cao
+│   │   ├── EventManager.js    # Quản lý sự kiện
+│   │   ├── FogOfWarManager.js # Quản lý sương mù chiến thuật
+│   │   ├── GridManager.js     # Quản lý lưới và chuyển đổi tọa độ
+│   │   ├── PathfindingManager.js # Quản lý tìm đường A*
+│   │   └── WorldManager.js    # Quản lý thế giới game
 │   │
-│   ├── scenes/             # Mỗi màn hình/trạng thái của game là một Scene
-│   │   ├── PreloaderScene.ts # Scene đầu tiên, dùng để tải assets
-│   │   ├── GameScene.ts      # Scene gameplay chính
-│   │   └── WaveDefenseScene.ts # Scene cho các trận chiến chống Wave
+│   ├── scenes/             # Các Scene của game
+│   │   ├── DemoScene.js       # Scene chính - gameplay RTS
+│   │   ├── GameScene.js       # Scene game (chưa sử dụng)
+│   │   ├── PauseScene.js      # Scene tạm dừng
+│   │   ├── PreloaderScene.js  # Scene tải assets
+│   │   ├── UIScene.js         # Scene giao diện người dùng
+│   │   └── WaveDefenseScene.js # Scene phòng thủ (chưa triển khai)
 │   │
-│   └── main.ts             # Điểm khởi đầu, cấu hình và khởi chạy game Phaser
+│   ├── main.js             # Entry point - cấu hình Phaser
+│   ├── style.css           # CSS styling
+│   └── counter.js          # File demo (có thể xóa)
 │
-├── index.html              # Cổng vào của ứng dụng web
-├── package.json            # Quản lý các thư viện và script của project
-└── README.md               # Chính là file này!
+├── index.html              # Cổng vào ứng dụng web
+├── package.json            # Quản lý dependencies
+├── package-lock.json       # Lock file cho dependencies
+├── GDD.md                  # Game Design Document
+├── PATHFINDING_SETUP.md    # Hướng dẫn setup pathfinding
+└── README.md               # Tài liệu này
 ```
 
 ## 4. Bắt đầu (Getting Started)
 
-Làm theo các bước sau để thiết lập môi trường phát triển trên một máy tính mới.
+### Yêu cầu hệ thống:
+- Node.js (phiên bản 14 trở lên)
+- Trình duyệt web hiện đại (Chrome, Firefox, Safari, Edge)
 
-### Clone repository (Nếu có):
+### Cài đặt và chạy:
 ```bash
+# Clone repository
 git clone [your-repository-url]
-cd the-sovereigns-gambit
-```
+cd the-fated-hegemon
 
-### Kiểm tra phiên bản Node.js:
-Đảm bảo bạn đang dùng phiên bản Node.js tương thích.
-```bash
-nvm use
-```
-*(Lệnh này sẽ tự động đọc phiên bản yêu cầu từ file .nvmrc nếu bạn tạo nó)*
-
-### Cài đặt các thư viện:
-```bash
+# Cài đặt dependencies
 npm install
-```
 
-### Chạy server phát triển:
-```bash
+# Chạy server phát triển
 npm run dev
 ```
 
-Mở trình duyệt và truy cập vào địa chỉ `http://localhost:xxxx` mà Vite cung cấp.
+Mở trình duyệt và truy cập vào địa chỉ `http://localhost:5173` (hoặc port mà Vite hiển thị).
 
-## 5. Quy trình Phát triển (Development Workflow)
+### Cách chơi hiện tại:
+- **Chuột trái**: Chọn đơn vị (click đơn) hoặc kéo chọn nhiều đơn vị
+- **Chuột phải**: Di chuyển đơn vị đã chọn đến vị trí click
+- **Scroll chuột**: Phóng to/thu nhỏ camera
+- **P**: Tạm dừng game
+- **ESC**: Tạm dừng game
+- **Click vào avatar**: Focus camera vào đơn vị đã chọn
 
-### Tư duy ECS-First
-Mọi logic gameplay phải được triển khai dưới dạng Components (dữ liệu) và Systems (hành vi). Tránh viết logic phức tạp trực tiếp trong các file Scene.
+## 5. Chi tiết Hệ thống (System Details)
 
-### Thêm Assets
-Để thêm ảnh hoặc âm thanh mới, hãy đặt file vào thư mục `public/assets/`. Sau đó, khai báo và tải nó trong file `src/scenes/PreloaderScene.ts`.
+### ECS Architecture
+Game sử dụng kiến trúc Entity Component System với các thành phần chính:
 
-### Tạo Logic mới:
-1. Tạo một file Component mới trong `src/ecs/components/` để lưu trữ dữ liệu.
-2. Tạo một file System mới trong `src/ecs/systems/` để xử lý dữ liệu đó.
-3. Đăng ký System mới trong `src/ecs/world.ts`.
-4. Trong `GameScene.ts` (hoặc các manager), tạo entity và gắn component cho nó.
+#### Components (Dữ liệu):
+- **Position**: Vị trí x, y của entity
+- **Velocity**: Vận tốc vx, vy cho di chuyển
+- **Appearance**: Màu sắc, kích thước để vẽ
+- **Health**: Máu hiện tại và tối đa
+- **AI**: Cấu hình AI cho đơn vị địch
+- **Behavior**: Trạng thái hành vi và mục tiêu
+- **Selectable/Selected**: Quản lý việc chọn đơn vị
+- **PlayerUnit**: Đánh dấu đơn vị thuộc về người chơi
+- **Building**: Đánh dấu công trình
+- **MoveTarget**: Mục tiêu di chuyển
 
-## 6. Lộ trình & Các tính năng dự kiến (Roadmap)
+#### Systems (Logic xử lý):
+- **MovementSystem**: Cập nhật vị trí dựa trên vận tốc
+- **RenderSystem**: Vẽ entities lên màn hình với Fog of War
+- **AISystem**: Xử lý AI cho đơn vị địch
+- **BehaviorSystem**: Quản lý trạng thái và hành vi
+- **CollisionSystem**: Xử lý va chạm giữa entities
 
-Đây là danh sách các hệ thống lớn cần xây dựng để biến ý tưởng thành hiện thực.
+### Managers (Quản lý cấp cao):
+- **FogOfWarManager**: Quản lý sương mù chiến thuật với 3 trạng thái
+- **PathfindingManager**: Tìm đường A* với grid-based navigation
+- **GridManager**: Chuyển đổi tọa độ world ↔ grid
+- **EventManager**: Quản lý sự kiện giữa các hệ thống
+- **WorldManager**: Quản lý thế giới game tổng thể
 
-- [ ] Nền tảng ECS cơ bản
-- [ ] Hệ thống Render cơ bản (Vẽ sprite từ ECS)
+### Scenes (Màn hình game):
+- **DemoScene**: Scene chính với gameplay RTS
+- **UIScene**: Giao diện người dùng (minimap, portrait, commands)
+- **PauseScene**: Màn hình tạm dừng
+- **PreloaderScene**: Tải assets
+- **GameScene/WaveDefenseScene**: Chưa triển khai
+
+## 6. Trạng thái Phát triển (Development Status)
+
+### ✅ Đã hoàn thành:
+- [x] Nền tảng ECS cơ bản với 11 components và 5 systems
+- [x] Hệ thống Render với Graphics API và RenderTexture
+- [x] AI Tìm đường (Pathfinding - A*) với grid-based navigation
+- [x] AI Hành vi cơ bản (Behavior System) với các trạng thái
+- [x] Hệ thống Fog of War với 3 trạng thái (UNSEEN, SEEN, VISIBLE)
+- [x] RTS Controls (chọn đơn vị, kéo chọn, di chuyển camera)
+- [x] Minimap với hiển thị đơn vị và khung camera
+- [x] UI System với portrait view và command cards
+- [x] Hệ thống va chạm cơ bản
+- [x] Pause/Resume functionality
+- [x] Entity Factory để tạo đơn vị và công trình
+
+### 🚧 Đang phát triển:
+- [ ] Tối ưu hóa hiệu năng cho hàng ngàn entities
+- [ ] Cải thiện AI behavior với state machine phức tạp hơn
+- [ ] Thêm âm thanh và hiệu ứng âm thanh
+
+### 📋 Kế hoạch tương lai:
 - [ ] Hệ thống Tạo thế giới Thủ tục (Chunking & Perlin Noise)
 - [ ] Hệ thống "Roll" (Gacha) cơ bản
-- [ ] AI Tìm đường (Pathfinding - A*)
-- [ ] AI Hành vi (Behavior Trees)
 - [ ] Hệ thống Wave Thủ thành (Sử dụng Scene song song)
 - [ ] Hệ thống Mô phỏng Trừu tượng & Sự kiện ngoài màn hình
 - [ ] Lưu/Tải game (Sử dụng IndexedDB)
 - [ ] Hệ thống Tùy biến Trang bị (Layered Sprites)
+- [ ] Multiplayer support
+- [ ] Advanced AI với machine learning
+
+## 7. Hướng dẫn Phát triển (Development Guide)
+
+### Thêm Component mới:
+1. Tạo file trong `src/ecs/components/`
+2. Export class với constructor nhận dữ liệu
+3. Sử dụng trong EntityFactory hoặc trực tiếp trong Scene
+
+### Thêm System mới:
+1. Tạo file trong `src/ecs/systems/`
+2. Implement method `update(delta)` 
+3. Đăng ký trong `DemoScene.create()` với `ecsWorld.addSystem()`
+
+### Thêm Manager mới:
+1. Tạo file trong `src/managers/`
+2. Khởi tạo trong `DemoScene.create()`
+3. Truyền reference vào các System cần thiết
 
 ---
 
-*Tài liệu này sẽ được cập nhật liên tục trong suốt quá trình phát triển.*
+*Tài liệu này được cập nhật lần cuối: Tháng 12, 2024*

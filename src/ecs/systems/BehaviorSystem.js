@@ -3,6 +3,7 @@
 export class BehaviorSystem {
     constructor(scene = null) {
         this.scene = scene;
+        this.ecsWorld = null; // Sẽ được set từ bên ngoài
         this.worldBounds = null; // Sẽ được khởi tạo trong update
     }
 
@@ -28,33 +29,130 @@ export class BehaviorSystem {
             const behavior = components.get('behavior');
             const position = components.get('position');
             const velocity = components.get('velocity');
-            const ai = components.get('ai');
 
             if (behavior && position && velocity) {
-                this.processBehavior(behavior, position, velocity, ai, deltaTime);
+                // SỬA LỖI: Truyền entityId và components vào
+                this.processBehavior(entityId, components, behavior, position, velocity, deltaTime);
                 processed++;
             }
         }
     }
 
-    processBehavior(behavior, position, velocity, ai, deltaTime) {
+    // SỬA LỖI: Thay đổi tham số để nhận vào components
+    processBehavior(entityId, components, behavior, position, velocity, deltaTime) {
         behavior.update(deltaTime);
 
         switch (behavior.type) {
+            // ==================================================
+            // ⭐ LOGIC MỚI ĐƯỢC THÊM VÀO
+            // ==================================================
+            case 'moveToTarget':
+                const moveTarget = components.get('moveTarget');
+                if (moveTarget) {
+                    const dx = moveTarget.x - position.x;
+                    const dy = moveTarget.y - position.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < 10) { // Đã đến nơi
+                        velocity.x = 0;
+                        velocity.y = 0;
+                        behavior.setBehavior('idle');
+                        // Dùng world instance để xóa component
+                        this.world.removeComponent(entityId, 'moveTarget');
+                    } else {
+                        const ai = components.get('ai');
+                        const speed = ai ? ai.config.speed : 100;
+                        velocity.x = (dx / distance) * speed;
+                        velocity.y = (dy / distance) * speed;
+                    }
+                } else {
+                    behavior.setBehavior('idle');
+                }
+                break;
+            // ==================================================
+            // Giữ lại các logic cũ
+            // ==================================================
             case 'idle':
                 this.handleIdle(velocity);
                 break;
             case 'patrol':
-                this.handlePatrol(behavior, position, velocity, ai, deltaTime);
+                const patrolAi = components.get('ai');
+                this.handlePatrol(behavior, position, velocity, patrolAi, deltaTime);
                 break;
             case 'wander':
                 this.handleWander(behavior, position, velocity, deltaTime);
                 break;
+            // ⭐ THÊM CASE MỚI NÀY VÀO
             case 'chase':
-                this.handleChase(behavior, position, velocity, ai, deltaTime);
+                const chaseAi = components.get('ai');
+                // Lấy mục tiêu từ component AI
+                const targetId = chaseAi.target; 
+                
+                if (targetId && this.ecsWorld && this.ecsWorld.entities.has(targetId)) {
+                    const targetComponents = this.ecsWorld.entities.get(targetId);
+                    const targetPosition = targetComponents.get('position');
+                    
+                    const dx = targetPosition.x - position.x;
+                    const dy = targetPosition.y - position.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance > 5) { // Đuổi theo nếu chưa quá gần
+                        const speed = chaseAi.config.speed;
+                        velocity.x = (dx / distance) * speed;
+                        velocity.y = (dy / distance) * speed;
+                    } else {
+                        velocity.x = 0;
+                        velocity.y = 0;
+                    }
+                } else {
+                    // Nếu không có mục tiêu, dừng lại
+                    velocity.x = 0;
+                    velocity.y = 0;
+                }
                 break;
             case 'flee':
-                this.handleFlee(behavior, position, velocity, ai, deltaTime);
+                const fleeAi = components.get('ai');
+                this.handleFlee(behavior, position, velocity, fleeAi, deltaTime);
+                break;
+            // ⭐ THÊM HÀNH VI MỚI: FOLLOW_PATH
+            case 'followPath':
+                const pathAi = components.get('ai');
+                if (!pathAi.hasPath()) {
+                    behavior.setBehavior('idle');
+                    return;
+                }
+
+                // Lấy điểm tiếp theo trên đường đi
+                let targetNode = pathAi.getCurrentPathNode();
+                const targetWorldPos = this.ecsWorld.scene.gridManager.gridToWorldCenter(targetNode.x, targetNode.y);
+
+                const dx = targetWorldPos.x - position.x;
+                const dy = targetWorldPos.y - position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Nếu đã đến gần điểm hiện tại, chuyển sang điểm tiếp theo
+                if (distance < this.ecsWorld.scene.gridManager.tileSize / 2) {
+                    pathAi.advancePath();
+                    // Nếu hết đường đi, dừng lại
+                    if (!pathAi.hasPath()) {
+                        behavior.setBehavior('idle');
+                        velocity.x = 0;
+                        velocity.y = 0;
+                        return;
+                    }
+                    // Lấy điểm mới ngay lập tức
+                    targetNode = pathAi.getCurrentPathNode();
+                    const newTargetWorldPos = this.ecsWorld.scene.gridManager.gridToWorldCenter(targetNode.x, targetNode.y);
+                    const newDx = newTargetWorldPos.x - position.x;
+                    const newDy = newTargetWorldPos.y - position.y;
+                    const newDist = Math.sqrt(newDx*newDx + newDy*newDy);
+                    velocity.x = (newDx / newDist) * pathAi.config.speed;
+                    velocity.y = (newDy / newDist) * pathAi.config.speed;
+                } else {
+                    // Di chuyển về phía điểm hiện tại
+                    velocity.x = (dx / distance) * pathAi.config.speed;
+                    velocity.y = (dy / distance) * pathAi.config.speed;
+                }
                 break;
         }
     }

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "easystarjs": "^0.4.4",
     "phaser": "^3.80.1"
   },
   "devDependencies": {

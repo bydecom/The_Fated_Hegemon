@@ -33,8 +33,24 @@ export class AI {
     }
 
     setPath(path) {
-        this.currentPath = path;
+        // Chuyển đổi path từ easystar (array of objects) thành một array các điểm
+        this.currentPath = path.map(p => ({ x: p.x, y: p.y }));
         this.pathIndex = 0;
+    }
+
+    hasPath() {
+        return this.currentPath && this.pathIndex < this.currentPath.length;
+    }
+
+    getCurrentPathNode() {
+        if (this.hasPath()) {
+            return this.currentPath[this.pathIndex];
+        }
+        return null;
+    }
+
+    advancePath() {
+        this.pathIndex++;
     }
 
     getNextPathPoint() {
