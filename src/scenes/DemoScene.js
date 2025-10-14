@@ -6,9 +6,11 @@ import { BehaviorSystem } from '../ecs/systems/BehaviorSystem.js';
 import { AISystem } from '../ecs/systems/AISystem.js';
 import { CollisionSystem } from '../ecs/systems/CollisionSystem.js';
 import { EntityFactory } from '../ecs/EntityFactory.js';
+import { CombatSystem } from '../ecs/systems/CombatSystem.js';
 import { FogOfWarManager } from '../managers/FogOfWarManager.js';
 import { GridManager } from '../managers/GridManager.js';
 import { PathfindingManager } from '../managers/PathfindingManager.js';
+import { SteeringSystem } from '../ecs/systems/SteeringSystem.js';
 
 // Components
 import { Position } from '../ecs/components/Position.js';
@@ -17,6 +19,7 @@ import { Selected } from '../ecs/components/Selected.js';
 import { PlayerUnit } from '../ecs/components/PlayerUnit.js';
 import { MoveTarget } from '../ecs/components/MoveTarget.js';
 import { Behavior } from '../ecs/components/Behavior.js';
+import { AI } from '../ecs/components/AI.js';
 
 // Constants
 const WORLD_WIDTH = 3200;
@@ -35,6 +38,9 @@ export class DemoScene extends Phaser.Scene {
         this.selectionBox = new Phaser.Geom.Rectangle(0, 0, 0, 0);
         this.isDragging = false;
         this.dragStartPoint = new Phaser.Geom.Point(0, 0);
+        
+        // ⭐ NEW: Theo dõi ID của đơn vị địch đang bị target để highlight
+        this.currentAttackTargetId = null;
     }
 
     create() {
@@ -53,14 +59,23 @@ export class DemoScene extends Phaser.Scene {
         this.pathfindingManager = new PathfindingManager(this.gridManager);
         this.renderSystem = new RenderSystem(this, this.gridManager, this.fogManager);
         
-        // ECS Systems
-        this.ecsWorld.addSystem(new MovementSystem());
-        this.ecsWorld.addSystem(new CollisionSystem());
-        this.ecsWorld.addSystem(this.renderSystem); // Render always runs last
+        // ECS Systems (thứ tự: AI -> Behavior -> Steering -> Movement -> Collision -> Combat -> Render)
+        const aiSystem = new AISystem();
         const behaviorSystem = new BehaviorSystem();
         behaviorSystem.ecsWorld = this.ecsWorld;
+        const steeringSystem = new SteeringSystem(this);
+        const combatSystem = new CombatSystem(this.ecsWorld);
+
+        this.ecsWorld.addSystem(aiSystem);
         this.ecsWorld.addSystem(behaviorSystem);
-        this.ecsWorld.addSystem(new AISystem());
+        this.ecsWorld.addSystem(steeringSystem);
+        this.ecsWorld.addSystem(new MovementSystem());
+        this.ecsWorld.addSystem(new CollisionSystem());
+        this.ecsWorld.addSystem(combatSystem);
+        this.ecsWorld.addSystem(this.renderSystem); // Render always runs last
+        
+        // ⭐ Kết nối RenderSystem với CombatSystem để hiển thị damage text
+        combatSystem.renderSystem = this.renderSystem;
         
         this.entityFactory = new EntityFactory(this.ecsWorld);
         
@@ -143,6 +158,42 @@ export class DemoScene extends Phaser.Scene {
         this.input.on('pointerdown', this.handlePointerDown, this);
         this.input.on('pointermove', this.handlePointerMove, this);
         this.input.on('pointerup', this.handlePointerUp, this);
+    }
+    
+    // ⭐ HÀM MỚI: Tìm ID Entity tại một điểm
+    findUnitIdAtWorldPoint(worldPoint) {
+        // ⭐ TÌM BUILDING TRƯỚC (vì building lớn, dễ click nhầm)
+        let foundBuildingId = null;
+        let foundUnitId = null;
+        
+        for (const [entityId, components] of this.ecsWorld.entities) {
+            // Chỉ tìm các đơn vị CÓ THỂ LÀ MỤC TIÊU (Có Position, Health, và không phải PlayerUnit)
+            if (!components.has('playerUnit') && components.has('position') && components.has('health')) { 
+                const pos = components.get('position');
+                const appearance = components.get('appearance');
+                const size = appearance ? appearance.size : 10;
+                
+                // Tạo bounds chính xác (hình chữ nhật/vuông)
+                const halfSize = size;
+                const entityBounds = new Phaser.Geom.Rectangle(
+                    pos.x - halfSize, 
+                    pos.y - halfSize, 
+                    halfSize * 2, 
+                    halfSize * 2
+                );
+                
+                if (Phaser.Geom.Rectangle.ContainsPoint(entityBounds, worldPoint)) {
+                    if (components.has('building')) {
+                        foundBuildingId = entityId;
+                    } else {
+                        foundUnitId = entityId;
+                    }
+                }
+            }
+        }
+        
+        // ⭐ Ưu tiên trả về Building nếu tìm thấy
+        return foundBuildingId || foundUnitId || null;
     }
     
     setupUI() {
@@ -258,24 +309,65 @@ export class DemoScene extends Phaser.Scene {
                 this.selectedEntities.clear();
                 this.emitSelectionData();
             }
+            
+            // ⭐ Bỏ target khi click trái
+            this.currentAttackTargetId = null;
+            this.renderSystem.setCurrentAttackTarget(null);
         }
         
-        // Handle right mouse button (move command)
+        // Handle right mouse button (move/attack command)
         if (pointer.rightButtonDown()) {
-            const endGridPos = this.gridManager.worldToGrid(worldPoint.x, worldPoint.y);
-            this.selectedEntities.forEach(entityId => {
-                const entity = this.ecsWorld.entities.get(entityId);
-                if (!entity) return;
-                const pos = entity.get('position');
-                const startGridPos = this.gridManager.worldToGrid(pos.x, pos.y);
-                this.pathfindingManager.findPath(startGridPos, endGridPos, (path) => {
-                    if (path) {
-                        const ai = entity.get('ai');
-                        ai.setPath(path);
-                        entity.get('behavior').setBehavior('followPath');
+            const targetId = this.findUnitIdAtWorldPoint(worldPoint);
+            
+            if (targetId && this.selectedEntities.size > 0) {
+                // ⭐ LỆNH TẤN CÔNG (Attack-Move)
+                
+                // 1. Highlight mục tiêu
+                this.currentAttackTargetId = targetId;
+                this.renderSystem.setCurrentAttackTarget(targetId);
+                
+                // 2. Gán mục tiêu và chuyển sang hành vi CHASE cho các đơn vị đã chọn
+                this.selectedEntities.forEach(entityId => {
+                    const entity = this.ecsWorld.entities.get(entityId);
+                    if (!entity) return;
+                    
+                    const ai = entity.get('ai');
+                    const behavior = entity.get('behavior');
+                    
+                    if (ai && behavior) {
+                        ai.setTargetId(targetId); // Set target ID trong Component AI
+                        // ⭐ THÊM FLAG: manualAttack = true để bỏ qua giới hạn detectionRange
+                        behavior.setBehavior('chase', { manualAttack: true }); 
+                        
+                        // Xóa MoveTarget nếu có
+                        this.ecsWorld.removeComponent(entityId, 'moveTarget');
                     }
                 });
-            });
+                
+            } else if (this.selectedEntities.size > 0) {
+                // ⭐ LỆNH DI CHUYỂN (Move-to-Point)
+                this.currentAttackTargetId = null; // Bỏ target cũ
+                this.renderSystem.setCurrentAttackTarget(null);
+                
+                const endGridPos = this.gridManager.worldToGrid(worldPoint.x, worldPoint.y);
+                this.selectedEntities.forEach(entityId => {
+                    const entity = this.ecsWorld.entities.get(entityId);
+                    if (!entity) return;
+                    
+                    const ai = entity.get('ai');
+                    // Xóa target cũ nếu có
+                    if (ai) ai.clearTarget();
+                    
+                    const pos = entity.get('position');
+                    const startGridPos = this.gridManager.worldToGrid(pos.x, pos.y);
+                    this.pathfindingManager.findPath(startGridPos, endGridPos, (path) => {
+                        if (path) {
+                            ai.setPath(path);
+                            entity.get('behavior').setBehavior('followPath');
+                        }
+                    });
+                });
+            }
         }
     }
 

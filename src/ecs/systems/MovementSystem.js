@@ -12,6 +12,9 @@ export class MovementSystem {
                 // Vị trí += Vận tốc * Thời gian (giây)
                 position.x += velocity.x * deltaInSeconds;
                 position.y += velocity.y * deltaInSeconds;
+
+                // ⭐ Orientation giờ được xử lý bởi SteeringSystem (smooth rotation)
+                // Không gọi updateOrientation() ở đây nữa để tránh xung đột
             }
         });
     }

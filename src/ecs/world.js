@@ -47,6 +47,13 @@ export class ECSWorld {
         });
     }
 
+    removeEntity(entityId) {
+        if (this.entities.has(entityId)) {
+            this.entities.delete(entityId);
+            this.queryCache.clear();
+        }
+    }
+
     // NEW: Powerful query system
     query = {
         all: (...componentClasses) => {

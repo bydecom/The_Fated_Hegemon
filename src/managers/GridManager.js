@@ -76,8 +76,8 @@ export class GridManager {
 
     // Vẽ lưới để debug (rất quan trọng)
     createDebugGraphics(scene) {
-        const graphics = scene.add.graphics({ lineStyle: { width: 1, color: 0x444444 } });
-        graphics.setDepth(50); // Nằm dưới sương mù nhưng trên mặt đất
+        const graphics = scene.add.graphics({ lineStyle: { width: 1, color: 0x333333, alpha: 0.3 } });
+        graphics.setDepth(-1); // ⭐ Depth thấp nhất - nằm dưới tất cả
 
         for (let i = 0; i <= this.gridWidth; i++) {
             const x = i * this.tileSize;

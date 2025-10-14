@@ -10,6 +10,7 @@ export class AI {
             ...config
         };
         this.target = null;
+        this.targetId = null; // NEW: Lưu ID mục tiêu
         this.lastDecisionTime = 0;
         this.currentPath = [];
         this.pathIndex = 0;
@@ -19,8 +20,13 @@ export class AI {
         this.target = target;
     }
 
+    setTargetId(targetId) {
+        this.targetId = targetId;
+    }
+
     clearTarget() {
         this.target = null;
+        this.targetId = null;
     }
 
     canMakeDecision(deltaTime) {

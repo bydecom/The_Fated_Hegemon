@@ -8,6 +8,7 @@ import { AI } from './components/AI.js';
 import { Selectable } from './components/Selectable.js';
 import { PlayerUnit } from './components/PlayerUnit.js';
 import { Building } from './components/Building.js'; // ⭐ IMPORT COMPONENT MỚI
+import { CombatStats } from './components/CombatStats.js';
 
 
 export class EntityFactory {
@@ -21,6 +22,7 @@ export class EntityFactory {
         this.ecsWorld.addComponent(entityId, 'position', new Position(x, y));
         this.ecsWorld.addComponent(entityId, 'velocity', new Velocity());
         this.ecsWorld.addComponent(entityId, 'health', new Health(100, 100));
+        this.ecsWorld.addComponent(entityId, 'combatStats', new CombatStats(20, 50, 1000));
         this.ecsWorld.addComponent(entityId, 'appearance', new Appearance(0x00ff00, 12, 'circle')); // Green circle
         this.ecsWorld.addComponent(entityId, 'behavior', new Behavior('idle'));
         this.ecsWorld.addComponent(entityId, 'ai', new AI('idle', { speed: 150 })); // AI for pathfinding speed etc.
@@ -36,7 +38,10 @@ export class EntityFactory {
         this.ecsWorld.addComponent(entityId, 'position', new Position(x, y));
         this.ecsWorld.addComponent(entityId, 'velocity', new Velocity());
         this.ecsWorld.addComponent(entityId, 'health', new Health(50, 50));
-        this.ecsWorld.addComponent(entityId, 'appearance', new Appearance(0xff0000, 10, 'triangle')); // Red triangle
+        this.ecsWorld.addComponent(entityId, 'combatStats', new CombatStats(10, 50, 1500));
+        const enemyAppearance = new Appearance(0xff0000, 10, 'triangle');
+        enemyAppearance.setWeapon({ type: null });
+        this.ecsWorld.addComponent(entityId, 'appearance', enemyAppearance); // Red triangle, no weapon
         this.ecsWorld.addComponent(entityId, 'behavior', new Behavior('wander', { speed: 40, interval: 3000 }));
         this.ecsWorld.addComponent(entityId, 'ai', new AI('wander'));
         
@@ -49,8 +54,10 @@ export class EntityFactory {
         this.ecsWorld.addComponent(entityId, 'position', new Position(x, y));
         this.ecsWorld.addComponent(entityId, 'velocity', new Velocity());
         this.ecsWorld.addComponent(entityId, 'health', new Health(50, 50));
+        this.ecsWorld.addComponent(entityId, 'combatStats', new CombatStats(10, 60, 1000));
         // Giao diện: Chấm tròn đỏ
-        this.ecsWorld.addComponent(entityId, 'appearance', new Appearance(0xff0000, 10, 'circle')); 
+        const chaserAppearance = new Appearance(0xff0000, 10, 'circle');
+        this.ecsWorld.addComponent(entityId, 'appearance', chaserAppearance); 
         // Hành vi ban đầu là lang thang
         this.ecsWorld.addComponent(entityId, 'behavior', new Behavior('wander', { speed: 40, interval: 3000 }));
         // AI: Loại 'chase' với tốc độ chậm hơn và có tầm nhìn
@@ -63,35 +70,45 @@ export class EntityFactory {
         return entityId;
     }
 
-    // ⭐ THÊM PHƯƠNG THỨC MỚI
+    // ⭐ CODE LẠI HOÀN TOÀN: Tạo enemy building
     createEnemyBuilding(gridX, gridY) {
-        // Lấy kích thước ô từ GridManager của scene
         const tileSize = this.ecsWorld.scene.gridManager.tileSize;
-        const buildingSizeInTiles = 3; // Nhà sẽ có kích thước 3x3 ô
+        const buildingSizeInTiles = 3; // Nhà 3x3 ô
         const buildingPixelSize = buildingSizeInTiles * tileSize;
 
-        // Tính toán tọa độ thế giới (tâm của công trình)
+        // Tọa độ tâm building
         const worldX = gridX * tileSize + buildingPixelSize / 2;
         const worldY = gridY * tileSize + buildingPixelSize / 2;
         
         const entityId = this.ecsWorld.createEntity();
 
+        // ⭐ CÁC COMPONENT CƠ BẢN (giống unit)
         this.ecsWorld.addComponent(entityId, 'position', new Position(worldX, worldY));
-        this.ecsWorld.addComponent(entityId, 'appearance', new Appearance(0xcc0000, buildingPixelSize / 2, 'rectangle')); // Đỏ sẫm
-        this.ecsWorld.addComponent(entityId, 'building', new Building()); // Đánh dấu là building
+        this.ecsWorld.addComponent(entityId, 'velocity', new Velocity(0, 0)); // Đứng yên
+        this.ecsWorld.addComponent(entityId, 'health', new Health(500, 500)); // 500 HP
+        this.ecsWorld.addComponent(entityId, 'behavior', new Behavior('idle')); // ⭐ CẦN behavior
+        this.ecsWorld.addComponent(entityId, 'ai', new AI('idle', { speed: 0 })); // ⭐ CẦN AI (speed=0)
+        
+        // Appearance
+        const buildingAppearance = new Appearance(0xcc0000, buildingPixelSize / 2, 'rectangle');
+        buildingAppearance.setWeapon({ type: null });
+        this.ecsWorld.addComponent(entityId, 'appearance', buildingAppearance);
+        
+        // Đánh dấu là building
+        this.ecsWorld.addComponent(entityId, 'building', new Building());
 
-        // Đánh dấu các ô trên lưới là "đã bị chiếm"
+        // Đánh dấu grid
         for (let x = gridX; x < gridX + buildingSizeInTiles; x++) {
             for (let y = gridY; y < gridY + buildingSizeInTiles; y++) {
                 this.ecsWorld.scene.gridManager.setTileOccupied(x, y, entityId);
             }
         }
         
-        // ⭐ CẬP NHẬT PATHFINDING GRID SAU KHI TẠO NHÀ
         if (this.ecsWorld.scene.pathfindingManager) {
             this.ecsWorld.scene.pathfindingManager.updateGrid();
         }
         
+        console.log(`🏗️ Created building at (${worldX}, ${worldY}) with ID: ${entityId}`);
         return entityId;
     }
 

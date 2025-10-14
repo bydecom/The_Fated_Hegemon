@@ -6,6 +6,12 @@ export class Appearance {
         this.size = size;
         this.shape = shape; // 'circle', 'rectangle', 'triangle'
         this.alpha = 1.0;
+        // MẶC ĐỊNH: Player Unit (Circle) có vũ khí
+        this.weapon = {
+            type: 'long_stick', 
+            offsetX: 5,        // Khoảng cách nhỏ (margin)
+            offsetY: 15        // Dịch chuyển lên/xuống (bên hông)
+        };
     }
 
     setColor(color) {
@@ -22,5 +28,10 @@ export class Appearance {
 
     setAlpha(alpha) {
         this.alpha = Math.max(0, Math.min(1, alpha));
+    }
+
+    // NEW: Hàm để dễ dàng set/remove vũ khí (dùng trong EntityFactory)
+    setWeapon(weaponData) {
+        this.weapon = weaponData;
     }
 }
