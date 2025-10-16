@@ -2,6 +2,9 @@
 
 *Một game RTS (Real-Time Strategy) được phát triển bằng Phaser 3 với hệ thống ECS*
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1025df49-7248-44f2-a15e-eb7442c0a70f" />
+
+
 ## 1. Tổng quan Dự án (Project Overview)
 
 The Fated Hegemon là một game chiến thuật thời gian thực được phát triển bằng Phaser 3 và JavaScript. Game sử dụng kiến trúc Entity Component System (ECS) để quản lý hàng ngàn đơn vị với hiệu năng cao, kết hợp với các hệ thống quản lý thông minh như Fog of War, Pathfinding và Grid-based movement.
