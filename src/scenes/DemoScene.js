@@ -146,9 +146,11 @@ export class DemoScene extends Phaser.Scene {
             console.log(`🎮 Command set: ${commandKey}`);
         }, this);
         
-        // ⭐ Pass ResourceManager to UIScene
-        this.uiScene.resourceManager = this.resourceManager;
-        this.uiScene.updateResourceDisplay(this.resourceManager);
+        // ⭐ Listen for UIScene ready event
+        this.uiScene.events.on('uiSceneReady', () => {
+            this.uiScene.resourceManager = this.resourceManager;
+            this.uiScene.updateResourceDisplay(this.resourceManager);
+        });
     }
 
     createPlayerUnits() {
@@ -624,11 +626,28 @@ export class DemoScene extends Phaser.Scene {
         }
         
         // ⭐ Handle right mouse button
-        if (pointer.rightButtonDown() && this.selectedEntities.size > 0) {
-            // Nếu có command active → EXECUTE command
-            if (this.currentCommand) {
+        if (pointer.rightButtonDown()) {
+            // Nếu có command active và có unit được chọn → EXECUTE command
+            if (this.currentCommand && this.selectedEntities.size > 0) {
                 this.handleCommandExecution(worldPoint);
-            } else {
+                return;
+            }
+            
+            // Nếu có command active nhưng KHÔNG có unit được chọn → CANCEL command
+            if (this.currentCommand) {
+                console.log(`❌ Command cancelled by right click: ${this.currentCommand}`);
+                this.currentCommand = null;
+                this.patrolStartPoint = null; // Reset patrol start
+                this.input.setDefaultCursor('default');
+                
+                if (this.uiScene) {
+                    this.uiScene.resetCommand();
+                }
+                return; // Không làm gì thêm
+            }
+            
+            // Nếu KHÔNG có command và có unit được chọn → EXECUTE behavior
+            if (this.selectedEntities.size > 0) {
                 // ⭐ NEW: Sử dụng ClickBehavior system
                 this.executeRightClickBehavior(worldPoint);
             }

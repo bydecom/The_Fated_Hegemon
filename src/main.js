@@ -2,7 +2,7 @@
 import './style.css';
 import { DemoScene } from './scenes/DemoScene.js';
 import { PauseScene } from './scenes/PauseScene.js'; // ⭐ IMPORT SCENE MỚI
-import { UIScene } from './scenes/UIScene.js'; // ⭐ IMPORT SCENE MỚI
+import { UIScene } from './ui/UIScene.js'; // ⭐ IMPORT SCENE MỚI
 
 // Cấu hình Phaser
 const config = {
