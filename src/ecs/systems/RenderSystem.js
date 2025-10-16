@@ -16,6 +16,9 @@ export class RenderSystem {
         // ⭐ NEW: ID của đơn vị địch đang bị target
         this.attackTargetId = null;
         
+        // ⭐ NEW: ID của mỏ tài nguyên đang thu hoạch
+        this.harvestTargetId = null;
+        
         // ⭐ NEW: Floating damage texts
         this.damageTexts = new Map(); // entityId -> array of damage text objects
         
@@ -30,10 +33,20 @@ export class RenderSystem {
     setCurrentAttackTarget(entityId) {
         this.attackTargetId = entityId;
     }
+    
+    // ⭐ NEW: Setter để DemoScene gửi ID mỏ tài nguyên đang thu hoạch
+    setCurrentHarvestTarget(entityId) {
+        this.harvestTargetId = entityId;
+    }
 
     update(deltaTime, entities) {
         this.selectionGraphics.clear();
         this.healthBarGraphics.clear(); // ⭐ Clear thanh máu mỗi frame
+        
+        // ⭐ Ẩn resource info text nếu không có harvest target
+        if (this.resourceInfoText) {
+            this.resourceInfoText.setVisible(false);
+        }
         
         if (this.currentSelectionRect) {
             this.selectionGraphics.fillStyle(0x00ff00, 0.2);
@@ -51,6 +64,14 @@ export class RenderSystem {
             let container = this.containers.get(entityId);
             if (!container) {
                 container = this.createLayeredSprite(position, appearance);
+                
+                // ⭐ Set depth: Buildings thấp hơn units
+                if (components.has('building')) {
+                    container.setDepth(5); // Buildings ở dưới
+                } else {
+                    container.setDepth(10); // Units ở trên
+                }
+                
                 this.containers.set(entityId, container);
             }
 
@@ -92,8 +113,14 @@ export class RenderSystem {
 
             // ⭐ LOGIC HIGHLIGHT Mục tiêu (Viền Đỏ)
             if (isVisible && entityId === this.attackTargetId) {
-                this.selectionGraphics.lineStyle(2, 0xff0000, 1); // Viền đỏ cho mục tiêu
+                this.selectionGraphics.lineStyle(2, 0xff0000, 1); // Viền đỏ cho mục tiêu tấn công
                 this.selectionGraphics.strokeCircle(container.x, container.y, appearance.size + 4);
+            }
+            
+            // ⭐ Vẽ vòng highlight cho mỏ tài nguyên đang thu hoạch (Viền Vàng)
+            if (isVisible && entityId === this.harvestTargetId) {
+                this.selectionGraphics.lineStyle(3, 0xFFD700, 1); // Viền vàng cho mỏ tài nguyên
+                this.selectionGraphics.strokeCircle(container.x, container.y, appearance.size + 6);
             }
 
             // Vẽ vòng chọn quanh body (cho Player - Viền Xanh)
@@ -102,9 +129,14 @@ export class RenderSystem {
                 this.selectionGraphics.strokeCircle(container.x, container.y, appearance.size + 4);
             }
 
+            // ⭐ Vẽ info tài nguyên nếu là harvest target
+            const resourceNode = components.get('resourceNode');
+            if (isVisible && entityId === this.harvestTargetId && resourceNode) {
+                this.drawResourceInfo(position, resourceNode, appearance);
+            }
             // ⭐ Vẽ thanh máu (theo tọa độ world, không bị xoay)
-            const health = components.get('health');
-            if (isVisible && health) {
+            else if (isVisible && components.has('health')) {
+                const health = components.get('health');
                 this.drawHealthBar(position, health, appearance);
             }
 
@@ -127,7 +159,29 @@ export class RenderSystem {
     createLayeredSprite(position, appearance) {
         const container = this.scene.add.container(position.x, position.y);
 
-        // Body
+        // ⭐ Arms (TAY) - render trước để nằm dưới body
+        if (appearance.hasArms) {
+            const armSize = appearance.armSize || 4;
+            const armColor = appearance.armColor || this.darkenColor(appearance.color, 0.7);
+            const bodySize = appearance.size || 10;
+            
+            // ⭐ Đối xứng theo trục Y (trục dọc)
+            const weaponOffsetY = appearance.weapon?.offsetY || 15;
+            const armY = weaponOffsetY; // Cùng độ cao với weapon
+            const armX = bodySize * 0.6; // Khoảng cách từ tâm ra 2 bên
+            
+            // Tay trái (bên trái cơ thể)
+            const leftArm = this.scene.add.circle(-armX, armY, armSize, armColor);
+            container.add(leftArm);
+            container.leftArm = leftArm;
+            
+            // Tay phải (bên phải cơ thể)
+            const rightArm = this.scene.add.circle(armX, armY, armSize, armColor);
+            container.add(rightArm);
+            container.rightArm = rightArm;
+        }
+
+        // Body (render sau để nằm trên tay)
         const bodySprite = this.createBodySprite(appearance);
         container.add(bodySprite);
 
@@ -162,7 +216,21 @@ export class RenderSystem {
         const shape = appearance ? appearance.shape : 'circle';
         const alpha = appearance ? appearance.alpha : 1.0;
         let sprite;
+        
+        // ⭐ NEW: Kiểm tra nếu có sprite texture
+        if (appearance && appearance.spriteKey && this.scene.textures.exists(appearance.spriteKey)) {
+            sprite = this.scene.add.sprite(0, 0, appearance.spriteKey, 0);
+            sprite.setOrigin(0.5, 0.5);
+            sprite.setScale(size / 32); // Scale dựa trên size (32 là kích thước gốc)
+            sprite.setAlpha(alpha);
+            return sprite;
+        }
+        
+        // Fallback về graphics shapes
         switch (shape) {
+            case 'square':
+                sprite = this.scene.add.rectangle(0, 0, size * 2, size * 2, color);
+                break;
             case 'rectangle':
                 sprite = this.scene.add.rectangle(0, 0, size * 2, size * 2, color);
                 break;
@@ -183,6 +251,9 @@ export class RenderSystem {
 		let sprite = null;
 		if (type === 'long_stick') {
 			sprite = this.scene.add.rectangle(0, 0, 40, 5, 0x000000);
+			sprite.setOrigin(0.5, 0.5);
+		} else if (type === 'short_stick') {
+			sprite = this.scene.add.rectangle(0, 0, 25, 4, 0x8B4513); // Ngắn hơn, màu nâu
 			sprite.setOrigin(0.5, 0.5);
 		}
 		return sprite;
@@ -235,6 +306,58 @@ export class RenderSystem {
 		);
 	}
 	
+	// ⭐ NEW: Vẽ info tài nguyên (icon + số lượng)
+	drawResourceInfo(position, resourceNode, appearance) {
+		const icons = {
+			'wood': '🌲',
+			'gold': '💰',
+			'silver': '⚪',
+			'stone': '🧱',
+			'water': '💧',
+			'meat': '🍖'
+		};
+		
+		const icon = icons[resourceNode.resourceType] || '📦';
+		const amount = Math.round(resourceNode.amount);
+		const infoY = position.y - appearance.size - 20;
+		
+		// Vẽ background
+		const bgWidth = 60;
+		const bgHeight = 20;
+		this.healthBarGraphics.fillStyle(0x000000, 0.8);
+		this.healthBarGraphics.fillRect(
+			position.x - bgWidth / 2,
+			infoY - bgHeight / 2,
+			bgWidth,
+			bgHeight
+		);
+		
+		// Vẽ viền vàng
+		this.healthBarGraphics.lineStyle(2, 0xFFD700, 1);
+		this.healthBarGraphics.strokeRect(
+			position.x - bgWidth / 2,
+			infoY - bgHeight / 2,
+			bgWidth,
+			bgHeight
+		);
+		
+		// Tạo text hiển thị icon + số lượng (sử dụng scene.add.text tạm thời)
+		if (!this.resourceInfoText) {
+			this.resourceInfoText = this.scene.add.text(0, 0, '', {
+				fontSize: '12px',
+				fontFamily: 'Arial',
+				color: '#FFD700',
+				fontStyle: 'bold'
+			});
+			this.resourceInfoText.setDepth(999);
+			this.resourceInfoText.setOrigin(0.5, 0.5);
+		}
+		
+		this.resourceInfoText.setText(`${icon} ${amount}`);
+		this.resourceInfoText.setPosition(position.x, infoY);
+		this.resourceInfoText.setVisible(true);
+	}
+	
 	// ⭐ NEW: Tạo damage text khi entity bị đánh
 	createDamageText(entityId, damage, position) {
 		const text = this.scene.add.text(position.x, position.y - 20, `-${damage}`, {
@@ -285,5 +408,21 @@ export class RenderSystem {
 				this.damageTexts.delete(entityId);
 			}
 		}
+	}
+	
+	// ⭐ NEW: Làm tối màu cho tay
+	darkenColor(color, factor = 0.7) {
+		// Chuyển hex color sang RGB
+		const r = (color >> 16) & 0xFF;
+		const g = (color >> 8) & 0xFF;
+		const b = color & 0xFF;
+		
+		// Làm tối
+		const newR = Math.floor(r * factor);
+		const newG = Math.floor(g * factor);
+		const newB = Math.floor(b * factor);
+		
+		// Chuyển về hex
+		return (newR << 16) | (newG << 8) | newB;
 	}
 }

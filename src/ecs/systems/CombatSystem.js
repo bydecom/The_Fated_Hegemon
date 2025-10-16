@@ -4,6 +4,7 @@ export class CombatSystem {
 	constructor(world) {
 		this.world = world;
 		this.renderSystem = null; // Sẽ được set từ bên ngoài
+		this.combatResponseSystem = null; // Sẽ được set từ bên ngoài
 	}
 
 	update(deltaTime, entities) {
@@ -35,6 +36,21 @@ export class CombatSystem {
 			// ⭐ Hiển thị damage text
 			if (this.renderSystem && targetPosition) {
 				this.renderSystem.createDamageText(targetId, combatStats.damage, targetPosition);
+			}
+			
+			// ⭐ Kích hoạt đánh trả nếu target còn sống và chưa đang đánh trả
+			if (!isDead && this.combatResponseSystem) {
+				// Kiểm tra xem target có đang đánh trả chưa
+				const targetCombatResponse = targetComponents.get('combatResponse');
+				if (targetCombatResponse && !targetCombatResponse.isBeingAttacked) {
+					// Tìm attacker ID từ attackerComponents
+					for (const [entityId, components] of this.world.entities) {
+						if (components === attackerComponents) {
+							this.combatResponseSystem.startRetaliation(targetId, entityId);
+							break;
+						}
+					}
+				}
 			}
 			
 			if (isDead) {

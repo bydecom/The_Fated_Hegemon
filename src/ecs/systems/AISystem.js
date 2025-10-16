@@ -44,11 +44,11 @@ export class AISystem {
         // Cập nhật trạng thái AI và hành vi
         if (closestTarget) {
             // Tìm thấy mục tiêu trong tầm -> Đuổi theo
-            ai.target = closestTarget; // Lưu ID của mục tiêu
-            behavior.setBehavior('chase');
+            ai.setTargetId(closestTarget); // ⭐ FIX: Dùng setTargetId() thay vì ai.target
+            behavior.setBehavior('chase', { manualAttack: true }); // Auto-attack player units
         } else {
             // Không có mục tiêu trong tầm -> Quay về lang thang
-            ai.target = null;
+            ai.clearTarget(); // ⭐ FIX: Dùng clearTarget() thay vì ai.target = null
             if (behavior.type === 'chase') { // Chỉ chuyển nếu đang đuổi
                 behavior.setBehavior('wander');
             }

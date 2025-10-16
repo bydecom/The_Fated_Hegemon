@@ -10,7 +10,8 @@ export class Behavior {
 
     setBehavior(type, data = {}) {
         this.type = type;
-        this.data = data;
+        // ⭐ DEEP COPY để tránh share data giữa các entities
+        this.data = JSON.parse(JSON.stringify(data));
         this.timer = 0;
         this.state = 'active';
     }

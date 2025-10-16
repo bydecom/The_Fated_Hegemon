@@ -93,7 +93,10 @@ export class BehaviorSystem {
                 break;
             case 'patrol':
                 const patrolAi = components.get('ai');
-                this.handlePatrol(behavior, position, velocity, patrolAi, deltaTime);
+                this.handlePatrol(entityId, behavior, position, velocity, patrolAi, deltaTime);
+                break;
+            case 'harvest':
+                this.handleHarvest(entityId, components, behavior, position, velocity, deltaTime);
                 break;
             case 'wander':
                 this.handleWander(behavior, position, velocity, deltaTime);
@@ -110,12 +113,26 @@ export class BehaviorSystem {
                 const fleeAi = components.get('ai');
                 this.handleFlee(behavior, position, velocity, fleeAi, deltaTime);
                 break;
+            // ⭐ NEW: Defence behavior
+            case 'defence':
+                this.handleDefence(entityId, components, behavior, position, velocity, deltaTime);
+                break;
             // ⭐ THÊM HÀNH VI MỚI: FOLLOW_PATH
             case 'followPath':
                 const pathAi = components.get('ai');
                 if (!pathAi.hasPath()) {
                     behavior.setBehavior('idle');
                     return;
+                }
+
+                // ⭐ AUTO-ATTACK ENEMIES DURING ATTACK-MOVE
+                if (behavior.data.manualAttack) {
+                    const nearestEnemy = this.findNearestEnemy(entityId, components, pathAi.config.detectionRange);
+                    if (nearestEnemy) {
+                        pathAi.setTargetId(nearestEnemy);
+                        behavior.setBehavior('chase', { manualAttack: true });
+                        return;
+                    }
                 }
 
                 // Lấy điểm tiếp theo trên đường đi
@@ -131,7 +148,19 @@ export class BehaviorSystem {
                     pathAi.advancePath();
                     // Nếu hết đường đi, dừng lại
                     if (!pathAi.hasPath()) {
-                        behavior.setBehavior('idle');
+                        // ⭐ Kiểm tra xem có đang di chuyển đến mỏ tài nguyên không
+                        if (behavior.data.targetResourceId) {
+                            const harvester = components.get('harvester');
+                            if (harvester) {
+                                harvester.startHarvesting(behavior.data.targetResourceId);
+                                behavior.setBehavior('harvest');
+                                console.log(`  Unit ${entityId}: Arrived at resource, starting harvest`);
+                            } else {
+                                behavior.setBehavior('idle');
+                            }
+                        } else {
+                            behavior.setBehavior('idle');
+                        }
                         velocity.x = 0;
                         velocity.y = 0;
                         return;
@@ -158,7 +187,7 @@ export class BehaviorSystem {
         velocity.y = 0;
     }
 
-    handlePatrol(behavior, position, velocity, ai, deltaTime) {
+    handlePatrol(entityId, behavior, position, velocity, ai, deltaTime) {
         if (!ai || !ai.canMakeDecision(deltaTime)) return;
 
         const patrolPoints = behavior.data.patrolPoints || [];
@@ -173,12 +202,47 @@ export class BehaviorSystem {
         const dy = targetPoint.y - position.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < 10) {
-            // Đã đến điểm patrol, chuyển sang điểm tiếp theo
-            behavior.data.currentTarget = (currentTarget + 1) % patrolPoints.length;
-            ai.resetDecisionTimer();
+        // ⭐ TĂNG NGƯỠNG ĐỂ TRÁNH OSCILLATION
+        const ARRIVAL_THRESHOLD = 50;
+        const WAIT_TIME = 300; // Đợi 300ms tại patrol point
+        
+        // ⭐ CHẾ ĐỘ WAITING TẠI PATROL POINT
+        if (behavior.data.isWaitingAtPoint) {
+            velocity.x = 0;
+            velocity.y = 0;
+            
+            // Đợi đủ thời gian rồi mới bắt đầu di chuyển lại
+            if (behavior.data.waitTimer >= WAIT_TIME) {
+                behavior.data.isWaitingAtPoint = false;
+                behavior.data.waitTimer = 0;
+            } else {
+                behavior.data.waitTimer = (behavior.data.waitTimer || 0) + deltaTime;
+            }
+            return;
+        }
+        
+        if (distance < ARRIVAL_THRESHOLD) {
+            // ⭐ ĐẾN PATROL POINT → SWITCH TARGET VÀ BẮT ĐẦU WAITING
+            if (!behavior.data.hasReachedPoint) {
+                const newTarget = (currentTarget + 1) % patrolPoints.length;
+                behavior.data.currentTarget = newTarget;
+                behavior.data.hasReachedPoint = true;
+                behavior.data.isWaitingAtPoint = true;
+                behavior.data.waitTimer = 0;
+                
+                // console.log(`🚶 Unit ${entityId}: Reached patrol point ${currentTarget}, switching to point ${newTarget}`);
+                // console.log(`   Points: [${patrolPoints[0].x.toFixed(0)}, ${patrolPoints[0].y.toFixed(0)}] ↔ [${patrolPoints[1].x.toFixed(0)}, ${patrolPoints[1].y.toFixed(0)}]`);
+                // console.log(`   Current pos: [${position.x.toFixed(0)}, ${position.y.toFixed(0)}]`);
+                
+                ai.resetDecisionTimer();
+            }
+            
+            // Dừng lại
+            velocity.x = 0;
+            velocity.y = 0;
         } else {
             // Di chuyển về phía điểm patrol
+            behavior.data.hasReachedPoint = false;
             const speed = ai.config.speed;
             velocity.x = (dx / distance) * speed;
             velocity.y = (dy / distance) * speed;
@@ -215,12 +279,25 @@ export class BehaviorSystem {
         // ⭐ CHỈ DÙNG targetId (không dùng ai.target vì đó là object)
         const targetId = ai.targetId;
         
-        // ⭐ DEBUG: Log chi tiết
+        // ⭐ ATTACK-MOVE MODE: Nếu không có target, follow path và tự động tìm enemies
         if (!targetId) {
-            console.warn(`⚠️ ${entityId} ai.targetId is NULL/UNDEFINED → NO TARGET!`);
+            // Nếu có path, follow path
+            if (ai.path && ai.path.length > 0) {
+                behavior.setBehavior('followPath');
+                return;
+            }
+            
+            // Nếu không có path, idle (chỉ log 1 lần để tránh spam)
+            if (!behavior.data.hasLoggedNoTarget) {
+                console.warn(`⚠️ ${entityId} ai.targetId is NULL/UNDEFINED → NO TARGET!`);
+                behavior.data.hasLoggedNoTarget = true;
+            }
             behavior.setBehavior('idle');
             return;
         }
+        
+        // Reset flag khi có target
+        behavior.data.hasLoggedNoTarget = false;
         
         if (!this.ecsWorld || !this.ecsWorld.entities.has(targetId)) {
             console.warn(`⚠️ ${entityId} Target ${targetId} NOT FOUND in entities → switching to IDLE`);
@@ -275,10 +352,17 @@ export class BehaviorSystem {
         const combat = components.get('combatStats');
         const targetId = ai ? ai.targetId : null; // CHỈ DÙNG targetId
         
-        // Nếu target không tồn tại, quay về idle
+        // Nếu target không tồn tại hoặc đã chết, quay về behavior thích hợp
         if (!targetId || !combat || !this.ecsWorld || !this.ecsWorld.entities.has(targetId)) {
             if (ai) ai.clearTarget();
-            behavior.setBehavior('idle');
+            
+            // ⭐ Nếu đang defence counter-attack, quay về defence mode
+            const defencePosition = components.get('defencePosition');
+            if (defencePosition && behavior.data.isDefenceCounterAttack) {
+                behavior.setBehavior('defence');
+            } else {
+                behavior.setBehavior('idle');
+            }
             return;
         }
 
@@ -381,5 +465,230 @@ export class BehaviorSystem {
         const speed = ai.config.speed;
         velocity.x = (dx / distance) * speed;
         velocity.y = (dy / distance) * speed;
+    }
+    
+    // ⭐ NEW: Xử lý Defence behavior
+    handleDefence(entityId, components, behavior, position, velocity, deltaTime) {
+        const defencePosition = components.get('defencePosition');
+        const ai = components.get('ai');
+        const combat = components.get('combatStats');
+        
+        if (!defencePosition) {
+            // Không có defence position, chuyển về idle
+            behavior.setBehavior('idle');
+            return;
+        }
+        
+        // ⭐ PRIORITY 1: Tìm kẻ địch trong tầm attack
+        let nearestEnemy = null;
+        let minDistance = Infinity;
+        
+        for (const [otherId, otherComponents] of this.ecsWorld.entities) {
+            if (otherId === entityId) continue;
+            
+            // Chỉ tấn công kẻ địch (không phải playerUnit)
+            if (otherComponents.has('playerUnit')) continue;
+            if (!otherComponents.has('health')) continue;
+            
+            const otherPos = otherComponents.get('position');
+            if (!otherPos) continue;
+            
+            const dx = otherPos.x - position.x;
+            const dy = otherPos.y - position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Chỉ tấn công enemy trong defence radius
+            const detectionRange = ai?.config?.detectionRange || 200;
+            if (distance < detectionRange && distance < minDistance) {
+                nearestEnemy = { id: otherId, distance };
+                minDistance = distance;
+            }
+        }
+        
+        // ⭐ PHASE 1: Nếu có enemy trong tầm và trong defence radius → PHẢN CÔNG
+        if (nearestEnemy && defencePosition.isWithinRadius(position.x, position.y)) {
+            ai.setTargetId(nearestEnemy.id);
+            behavior.setBehavior('chase', { 
+                manualAttack: true,
+                isDefenceCounterAttack: true // Flag để biết là phản công
+            });
+            defencePosition.isRetreating = false;
+            return;
+        }
+        
+        // ⭐ PHASE 2: Nếu đã rời xa vị trí phòng thủ → CHẠY VỀ
+        const distanceFromDefence = defencePosition.getDistanceFromDefencePoint(position.x, position.y);
+        
+        if (distanceFromDefence > defencePosition.radius * 0.5) {
+            // Chạy về vị trí phòng thủ
+            defencePosition.isRetreating = true;
+            
+            const dx = defencePosition.x - position.x;
+            const dy = defencePosition.y - position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 10) {
+                // Đã về đến vị trí phòng thủ
+                velocity.x = 0;
+                velocity.y = 0;
+                defencePosition.isRetreating = false;
+            } else {
+                // Di chuyển về
+                const speed = ai?.config?.speed || 100;
+                velocity.x = (dx / distance) * speed;
+                velocity.y = (dy / distance) * speed;
+            }
+        } else {
+            // Ở trong bán kính phòng thủ, đứng yên
+            velocity.x = 0;
+            velocity.y = 0;
+            defencePosition.isRetreating = false;
+        }
+    }
+    
+    // ⭐ HELPER: Tìm enemy gần nhất trong tầm detection range
+    findNearestEnemy(entityId, components, detectionRange) {
+        const position = components.get('position');
+        if (!position) return null;
+        
+        const isPlayerUnit = components.has('playerUnit');
+        
+        let nearestEnemyId = null;
+        let minDistance = detectionRange;
+        
+        for (const [otherId, otherComponents] of this.ecsWorld.entities) {
+            if (otherId === entityId) continue;
+            
+            // Player units tấn công non-player units (enemies/buildings)
+            // Non-player units tấn công player units
+            if (isPlayerUnit) {
+                if (otherComponents.has('playerUnit')) continue; // Skip allies
+            } else {
+                if (!otherComponents.has('playerUnit')) continue; // Skip allies
+            }
+            
+            if (!otherComponents.has('health')) continue;
+            
+            const otherPos = otherComponents.get('position');
+            if (!otherPos) continue;
+            
+            const dx = otherPos.x - position.x;
+            const dy = otherPos.y - position.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < minDistance) {
+                nearestEnemyId = otherId;
+                minDistance = distance;
+            }
+        }
+        
+        return nearestEnemyId;
+    }
+
+    // ⭐ HANDLE HARVEST BEHAVIOR
+    handleHarvest(entityId, components, behavior, position, velocity, deltaTime) {
+        const harvester = components.get('harvester');
+        if (!harvester) {
+            behavior.setBehavior('idle');
+            return;
+        }
+
+        // Nếu đang thu hoạch, dừng di chuyển
+        if (harvester.isHarvesting) {
+            velocity.x = 0;
+            velocity.y = 0;
+            return;
+        }
+
+        // Nếu kho đã đầy, dừng thu hoạch
+        if (harvester.isFull()) {
+            behavior.setBehavior('idle');
+            console.log(`📦 ${entityId}: Storage full, stopping harvest`);
+            return;
+        }
+
+        // ⭐ Ưu tiên targetResourceId nếu đã được chỉ định (từ click chuột phải)
+        let targetResource = harvester.targetResourceId;
+        
+        // Nếu chưa có target hoặc target không còn resource, tìm resource gần nhất
+        if (targetResource) {
+            const targetEntity = this.ecsWorld.entities.get(targetResource);
+            const targetResourceNode = targetEntity?.get('resourceNode');
+            if (!targetResourceNode || !targetResourceNode.hasResources()) {
+                targetResource = null;
+                harvester.targetResourceId = null;
+            }
+        }
+        
+        if (!targetResource) {
+            targetResource = this.findNearestResource(position, harvester.harvestRange * 2); // Tăng gấp đôi range khi tìm
+            if (!targetResource) {
+                behavior.setBehavior('idle');
+                console.log(`🔍 ${entityId}: No resources found, stopping harvest`);
+                return;
+            }
+        }
+
+        // Di chuyển đến tài nguyên
+        const targetEntity = this.ecsWorld.entities.get(targetResource);
+        const targetPos = targetEntity?.get('position');
+        const targetAppearance = targetEntity?.get('appearance');
+        
+        if (!targetPos) {
+            behavior.setBehavior('idle');
+            return;
+        }
+
+        const dx = targetPos.x - position.x;
+        const dy = targetPos.y - position.y;
+        const centerDistance = Math.sqrt(dx * dx + dy * dy);
+        
+        // ⭐ Tính khoảng cách từ MÉP (edge-to-edge)
+        const harvesterSize = appearance.size || 10;
+        const resourceSize = targetAppearance ? targetAppearance.size : 10;
+        const edgeDistance = centerDistance - harvesterSize - resourceSize;
+
+        console.log(`📏 ${entityId}: Distance to resource - center=${centerDistance.toFixed(0)}, edge=${edgeDistance.toFixed(0)}, range=${harvester.harvestRange}`);
+
+        if (edgeDistance <= harvester.harvestRange) {
+            // Đã đến tài nguyên, bắt đầu thu hoạch
+            harvester.startHarvesting(targetResource);
+            velocity.x = 0;
+            velocity.y = 0;
+            console.log(`🌾 ${entityId}: Started harvesting resource ${targetResource}`);
+        } else {
+            // Di chuyển đến tài nguyên
+            const speed = 120; // Tốc độ di chuyển
+            velocity.x = (dx / centerDistance) * speed;
+            velocity.y = (dy / centerDistance) * speed;
+        }
+    }
+
+    // Tìm tài nguyên gần nhất
+    findNearestResource(position, maxRange) {
+        let nearestId = null;
+        let nearestDistance = maxRange;
+
+        for (const [entityId, components] of this.ecsWorld.entities) {
+            if (!components.has('resourceNode')) continue;
+
+            const targetPosition = components.get('position');
+            if (!targetPosition) continue;
+
+            const resourceNode = components.get('resourceNode');
+            if (!resourceNode || !resourceNode.hasResources()) continue;
+
+            const distance = Math.sqrt(
+                Math.pow(position.x - targetPosition.x, 2) + 
+                Math.pow(position.y - targetPosition.y, 2)
+            );
+
+            if (distance < nearestDistance) {
+                nearestId = entityId;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearestId;
     }
 }

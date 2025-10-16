@@ -3,6 +3,7 @@
 export class UIScene extends Phaser.Scene {
     constructor() {
         super({ key: 'UIScene' });
+        this.activeCommand = null; // 'attack', 'stop', 'defence', 'patrol'
     }
 
     create() {
@@ -29,6 +30,12 @@ export class UIScene extends Phaser.Scene {
             this.updateUI(selectedData);
         });
         gameScene.events.on('update', this.updateMinimap, this);
+        
+        // ⭐ Listen for command activation (from hotkeys or button clicks)
+        gameScene.events.on('commandActivated', (commandKey) => {
+            this.activeCommand = commandKey;
+            this.updateCommandButtonHighlight();
+        }, this);
     }
 
     createLayout() {
@@ -36,6 +43,9 @@ export class UIScene extends Phaser.Scene {
         const screenHeight = this.scale.height;
         const panelHeight = 200;
         const panelY = screenHeight - panelHeight;
+
+        // ⭐ CREATE RESOURCE PANEL AT TOP
+        this.createResourcePanel();
 
         // Create UI shield to capture input events
         const uiShield = this.add.rectangle(0, panelY, screenWidth, panelHeight, 0xff0000, 0)
@@ -161,7 +171,50 @@ export class UIScene extends Phaser.Scene {
         this.commandButtonsContainer.removeAll(true);
         const buttonSize = 55; 
         const buttonSpacing = 5;
-        const commands = [{ name: 'Move' }, { name: 'Stop' }, { name: 'Attack' }];
+        
+        // ⭐ Các lệnh RTS chuyên nghiệp
+        const commands = [
+            { 
+                key: 'attack', 
+                label: 'A\nAttack',
+                hotkey: 'A',
+                color: 0xff4444,
+                cursor: 'crosshair',
+                description: 'Chase và tấn công kẻ địch' 
+            },
+            { 
+                key: 'stop', 
+                label: 'S\nStop',
+                hotkey: 'S',
+                color: 0xffaa44,
+                cursor: 'default',
+                description: 'Đứng im, tự động phản công' 
+            },
+            { 
+                key: 'defence', 
+                label: 'D\nDefence',
+                hotkey: 'D',
+                color: 0x4444ff,
+                cursor: 'help',
+                description: 'Thế phòng thủ tại chỗ' 
+            },
+            { 
+                key: 'patrol', 
+                label: 'P\nPatrol',
+                hotkey: 'P',
+                color: 0x44ff44,
+                cursor: 'pointer',
+                description: 'Tuần tra qua lại' 
+            },
+            { 
+                key: 'harvest', 
+                label: 'H\nHarvest',
+                hotkey: 'H',
+                color: 0xff8800,
+                cursor: 'grab',
+                description: 'Thu hoạch tài nguyên' 
+            }
+        ];
         
         commands.forEach((command, index) => {
             const col = index % 4; 
@@ -169,20 +222,91 @@ export class UIScene extends Phaser.Scene {
             const x = col * (buttonSize + buttonSpacing); 
             const y = row * (buttonSize + buttonSpacing);
             
-            const button = this.add.rectangle(x, y, buttonSize, buttonSize, 0x444444)
+            // Button background
+            const bgColor = this.activeCommand === command.key ? command.color : 0x444444;
+            const button = this.add.rectangle(x, y, buttonSize, buttonSize, bgColor)
                 .setOrigin(0,0)
-                .setStrokeStyle(1, 0x999999)
+                .setStrokeStyle(2, this.activeCommand === command.key ? 0xffffff : 0x999999)
                 .setInteractive({ useHandCursor: true });
-            const buttonText = this.add.text(x + buttonSize/2, y + buttonSize/2, command.name, { fontSize: '12px' })
-                .setOrigin(0.5);
             
-            button.on('pointerdown', (p,lx,ly,e) => { 
+            // Button label
+            const buttonText = this.add.text(
+                x + buttonSize/2, 
+                y + buttonSize/2, 
+                command.label, 
+                { fontSize: '11px', align: 'center' }
+            ).setOrigin(0.5);
+            
+            // ⭐ Click handler
+            button.on('pointerdown', (p, lx, ly, e) => { 
                 e.stopPropagation(); 
-                console.log(`Command: ${command.name}`); 
+                this.handleCommandClick(command);
+            });
+            
+            // Hover effect
+            button.on('pointerover', () => {
+                if (this.activeCommand !== command.key) {
+                    button.setFillStyle(command.color, 0.5);
+                }
+            });
+            
+            button.on('pointerout', () => {
+                if (this.activeCommand !== command.key) {
+                    button.setFillStyle(0x444444);
+                }
             });
             
             this.commandButtonsContainer.add([button, buttonText]);
+            
+            // Store reference for updating later
+            button.commandKey = command.key;
+            button.commandColor = command.color;
         });
+    }
+    
+    // ⭐ NEW: Xử lý khi click command button
+    handleCommandClick(command) {
+        const gameScene = this.scene.get('DemoScene');
+        
+        // Toggle command
+        if (this.activeCommand === command.key) {
+            // Cancel command
+            this.activeCommand = null;
+            gameScene.input.setDefaultCursor('default');
+            console.log(`❌ Command cancelled: ${command.key}`);
+        } else {
+            // Activate command
+            this.activeCommand = command.key;
+            gameScene.input.setDefaultCursor(command.cursor);
+            console.log(`✅ Command activated: ${command.key} (cursor: ${command.cursor})`);
+            
+            // Emit event để DemoScene biết
+            gameScene.events.emit('commandActivated', command.key);
+        }
+        
+        // Update button visual
+        this.updateCommandButtonHighlight();
+    }
+    
+    // ⭐ NEW: Update button highlight
+    updateCommandButtonHighlight() {
+        this.commandButtonsContainer.list.forEach(child => {
+            if (child.commandKey) {
+                const isActive = this.activeCommand === child.commandKey;
+                child.setFillStyle(isActive ? child.commandColor : 0x444444);
+                child.setStrokeStyle(2, isActive ? 0xffffff : 0x999999);
+            }
+        });
+    }
+    
+    // ⭐ NEW: Reset command sau khi sử dụng
+    resetCommand() {
+        this.activeCommand = null;
+        const gameScene = this.scene.get('DemoScene');
+        if (gameScene) {
+            gameScene.input.setDefaultCursor('default');
+        }
+        this.updateCommandButtonHighlight();
     }
 
     updateMinimap() {
@@ -243,6 +367,85 @@ export class UIScene extends Phaser.Scene {
         this.minimapTexture.fill(color, 1, camRectX, camRectY + camRectHeight - thickness, camRectWidth, thickness);
         this.minimapTexture.fill(color, 1, camRectX, camRectY, thickness, camRectHeight);
         this.minimapTexture.fill(color, 1, camRectX + camRectWidth - thickness, camRectY, thickness, camRectHeight);
+    }
+    
+    // ⭐ CREATE RESOURCE PANEL AT TOP RIGHT OF SCREEN
+    createResourcePanel() {
+        const screenWidth = this.scale.width;
+        const panelHeight = 32;
+        const panelWidth = 480;
+        const panelX = screenWidth - panelWidth - 10; // Right side
+        
+        // Background panel
+        this.resourcePanelBg = this.add.rectangle(panelX, 10, panelWidth, panelHeight, 0x1a1a1a, 0.9)
+            .setOrigin(0, 0)
+            .setStrokeStyle(2, 0x444444)
+            .setScrollFactor(0)
+            .setDepth(1000);
+        
+        // Resource icons và text (1 hàng ngang)
+        const resources = [
+            { key: 'wood', icon: '🌲', color: 0x8B4513 },
+            { key: 'meat', icon: '🍖', color: 0xD2691E },
+            { key: 'gold', icon: '💰', color: 0xFFD700 },
+            { key: 'silver', icon: '⚪', color: 0xC0C0C0 },
+            { key: 'stone', icon: '🧱', color: 0x808080 },
+            { key: 'water', icon: '💧', color: 0x1E90FF }
+        ];
+        
+        this.resourceTexts = {};
+        const spacing = 65;
+        const startX = panelX + 8;
+        const y = 26;
+        
+        resources.forEach((res, index) => {
+            const x = startX + index * spacing;
+            
+            // Icon
+            this.add.text(x, y, res.icon, {
+                fontSize: '14px',
+                fontFamily: 'Arial'
+            }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001);
+            
+            // Value text
+            this.resourceTexts[res.key] = this.add.text(x + 20, y, '0', {
+                fontSize: '13px',
+                fontFamily: 'Arial',
+                color: '#' + res.color.toString(16).padStart(6, '0'),
+                fontStyle: 'bold'
+            }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001);
+        });
+        
+        // Unit count (right side)
+        const unitX = startX + resources.length * spacing + 5;
+        this.add.text(unitX, y, '👥', {
+            fontSize: '14px',
+            fontFamily: 'Arial'
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001);
+        
+        this.unitCountText = this.add.text(unitX + 20, y, '0/200', {
+            fontSize: '13px',
+            fontFamily: 'Arial',
+            color: '#00ff00',
+            fontStyle: 'bold'
+        }).setOrigin(0, 0.5).setScrollFactor(0).setDepth(1001);
+    }
+    
+    // ⭐ UPDATE RESOURCE DISPLAY
+    updateResourceDisplay(resourceManager) {
+        if (!this.resourceTexts) return;
+        
+        const resources = resourceManager.getAllResources();
+        
+        for (const [key, value] of Object.entries(resources)) {
+            if (this.resourceTexts[key]) {
+                this.resourceTexts[key].setText(value.toString());
+            }
+        }
+        
+        if (this.unitCountText) {
+            this.unitCountText.setText(`${resourceManager.unitCount}/${resourceManager.maxUnitCount}`);
+        }
     }
     
     handleResize() { 

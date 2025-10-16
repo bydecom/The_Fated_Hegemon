@@ -74,6 +74,41 @@ export class GridManager {
         }
     }
 
+    // ⭐ TÌM Ô TRỐNG GẦN NHẤT (tránh building)
+    findNearestWalkableTile(gridX, gridY, maxRadius = 10) {
+        // Nếu ô hiện tại đã trống, trả về luôn
+        if (this.grid[gridX] && this.grid[gridX][gridY] && this.grid[gridX][gridY].isWalkable) {
+            return { x: gridX, y: gridY };
+        }
+
+        // Tìm ô trống gần nhất theo hình xoắn ốc
+        for (let radius = 1; radius <= maxRadius; radius++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                for (let dy = -radius; dy <= radius; dy++) {
+                    // Chỉ kiểm tra các ô ở viền ngoài của radius hiện tại
+                    if (Math.abs(dx) !== radius && Math.abs(dy) !== radius) continue;
+
+                    const checkX = gridX + dx;
+                    const checkY = gridY + dy;
+
+                    // Kiểm tra có trong biên không
+                    if (checkX < 0 || checkX >= this.gridWidth || checkY < 0 || checkY >= this.gridHeight) {
+                        continue;
+                    }
+
+                    // Kiểm tra ô có trống không
+                    if (this.grid[checkX][checkY].isWalkable) {
+                        return { x: checkX, y: checkY };
+                    }
+                }
+            }
+        }
+
+        // Nếu không tìm thấy, trả về vị trí gốc
+        console.warn(`⚠️ Không tìm thấy ô trống gần (${gridX}, ${gridY})`);
+        return { x: gridX, y: gridY };
+    }
+
     // Vẽ lưới để debug (rất quan trọng)
     createDebugGraphics(scene) {
         const graphics = scene.add.graphics({ lineStyle: { width: 1, color: 0x333333, alpha: 0.3 } });

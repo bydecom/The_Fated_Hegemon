@@ -30,19 +30,26 @@ export class CollisionSystem {
                     const isABuilding = compsA.has('building');
                     const isBBuilding = compsB.has('building');
                     
+                    // ⭐ Mỏ tài nguyên tĩnh cũng được coi như building (block cứng)
+                    const isAStaticResource = compsA.has('resourceNode') && !compsA.has('velocity');
+                    const isBStaticResource = compsB.has('resourceNode') && !compsB.has('velocity');
+                    
+                    const isAStatic = isABuilding || isAStaticResource;
+                    const isBStatic = isBBuilding || isBStaticResource;
+                    
                     const overlap = minDistance - distance;
                     const pushX = (dx / distance) * overlap;
                     const pushY = (dy / distance) * overlap;
 
-                    if (isABuilding && isBBuilding) {
-                        // Hai công trình va vào nhau -> không làm gì cả
+                    if (isAStatic && isBStatic) {
+                        // Hai object tĩnh va vào nhau -> không làm gì cả
                         continue;
-                    } else if (isABuilding) {
-                        // A là nhà, B là lính -> Chỉ đẩy lính B
+                    } else if (isAStatic) {
+                        // A là object tĩnh, B là lính -> Chỉ đẩy lính B
                         posB.x -= pushX;
                         posB.y -= pushY;
-                    } else if (isBBuilding) {
-                        // B là nhà, A là lính -> Chỉ đẩy lính A
+                    } else if (isBStatic) {
+                        // B là object tĩnh, A là lính -> Chỉ đẩy lính A
                         posA.x += pushX;
                         posA.y += pushY;
                     } else {

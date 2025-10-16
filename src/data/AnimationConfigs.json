@@ -1,0 +1,176 @@
+{
+  "soldier": {
+    "idle": {
+      "frames": 4,
+      "frameRate": 8,
+      "repeat": -1,
+      "key": "soldier_idle",
+      "description": "Animation đứng yên của lính"
+    },
+    "move": {
+      "frames": 8,
+      "frameRate": 12,
+      "repeat": -1,
+      "key": "soldier_move",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation di chuyển của lính"
+    },
+    "attack": {
+      "frames": 6,
+      "frameRate": 15,
+      "repeat": 0,
+      "key": "soldier_attack",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation tấn công của lính"
+    },
+    "die": {
+      "frames": 5,
+      "frameRate": 10,
+      "repeat": 0,
+      "key": "soldier_die",
+      "description": "Animation chết của lính"
+    }
+  },
+  "archer": {
+    "idle": {
+      "frames": 3,
+      "frameRate": 6,
+      "repeat": -1,
+      "key": "archer_idle",
+      "description": "Animation đứng yên của cung thủ"
+    },
+    "move": {
+      "frames": 6,
+      "frameRate": 10,
+      "repeat": -1,
+      "key": "archer_move",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation di chuyển của cung thủ"
+    },
+    "attack": {
+      "frames": 8,
+      "frameRate": 18,
+      "repeat": 0,
+      "key": "archer_attack",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation bắn cung"
+    },
+    "die": {
+      "frames": 4,
+      "frameRate": 8,
+      "repeat": 0,
+      "key": "archer_die",
+      "description": "Animation chết của cung thủ"
+    }
+  },
+  "harvester": {
+    "idle": {
+      "frames": 2,
+      "frameRate": 4,
+      "repeat": -1,
+      "key": "harvester_idle",
+      "description": "Animation đứng yên của dân thu hoạch"
+    },
+    "move": {
+      "frames": 6,
+      "frameRate": 10,
+      "repeat": -1,
+      "key": "harvester_move",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation di chuyển của dân thu hoạch"
+    },
+    "harvest": {
+      "frames": 4,
+      "frameRate": 8,
+      "repeat": -1,
+      "key": "harvester_harvest",
+      "description": "Animation thu hoạch tài nguyên"
+    },
+    "die": {
+      "frames": 3,
+      "frameRate": 6,
+      "repeat": 0,
+      "key": "harvester_die",
+      "description": "Animation chết của dân thu hoạch"
+    }
+  },
+  "knight": {
+    "idle": {
+      "frames": 3,
+      "frameRate": 5,
+      "repeat": -1,
+      "key": "knight_idle",
+      "description": "Animation đứng yên của kỵ sĩ"
+    },
+    "move": {
+      "frames": 8,
+      "frameRate": 10,
+      "repeat": -1,
+      "key": "knight_move",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation di chuyển của kỵ sĩ"
+    },
+    "attack": {
+      "frames": 10,
+      "frameRate": 12,
+      "repeat": 0,
+      "key": "knight_attack",
+      "directions": ["up", "down", "left", "right"],
+      "description": "Animation tấn công của kỵ sĩ"
+    },
+    "die": {
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": 0,
+      "key": "knight_die",
+      "description": "Animation chết của kỵ sĩ"
+    }
+  },
+  "animal": {
+    "idle": {
+      "frames": 1,
+      "frameRate": 1,
+      "repeat": -1,
+      "key": "animal_idle",
+      "description": "Animation đứng yên của động vật"
+    },
+    "move": {
+      "frames": 6,
+      "frameRate": 8,
+      "repeat": -1,
+      "key": "animal_move",
+      "directions": ["down", "up", "left", "right"],
+      "description": "Animation di chuyển của động vật"
+    },
+    "die": {
+      "frames": 1,
+      "frameRate": 1,
+      "repeat": 0,
+      "key": "animal_die",
+      "description": "Animation chết của động vật"
+    }
+  },
+  "building": {
+    "idle": {
+      "frames": 1,
+      "frameRate": 1,
+      "repeat": -1,
+      "key": "building_idle",
+      "description": "Animation tĩnh của building"
+    },
+    "construction": {
+      "frames": 5,
+      "frameRate": 6,
+      "repeat": -1,
+      "key": "building_construction",
+      "description": "Animation đang xây dựng"
+    },
+    "destroyed": {
+      "frames": 4,
+      "frameRate": 8,
+      "repeat": 0,
+      "key": "building_destroyed",
+      "description": "Animation bị phá hủy"
+    }
+  }
+}

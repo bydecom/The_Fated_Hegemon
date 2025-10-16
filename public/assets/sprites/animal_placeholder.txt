@@ -1,0 +1,33 @@
+# 🐗 Animal Sprite Sheet Placeholder
+
+Đây là file placeholder cho animal sprite sheet.
+
+## 📋 Thông tin cần thiết:
+
+- **Tên file**: `animal.png` (đổi từ `animal_placeholder.txt`)
+- **Kích thước**: 384x512 pixels
+- **Layout**: 6 cột x 8 hàng
+- **Mỗi frame**: 64x64 pixels
+
+## 🎬 Animation Layout:
+
+```
+Hàng 1 (frames 0-5):   move_down  - 6 frames
+Hàng 2 (frames 6-11):  move_up    - 6 frames  
+Hàng 3 (frames 12-17): move_left  - 6 frames
+Hàng 4 (frames 18-23): move_right - 6 frames
+Hàng 5-8:              Không sử dụng
+```
+
+## 🚀 Cách sử dụng:
+
+1. Tạo file `animal.png` với kích thước 384x512
+2. Sắp xếp animations theo layout trên
+3. Đặt file vào thư mục này
+4. Xóa file placeholder này
+
+## ⚠️ Lưu ý:
+
+- Nếu không có file `animal.png`, game sẽ sử dụng graphics shapes thay vì sprite
+- File phải có đúng kích thước và format PNG
+- Mỗi frame phải có kích thước chính xác 64x64 pixels
