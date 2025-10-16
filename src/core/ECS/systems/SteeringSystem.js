@@ -1,7 +1,7 @@
 // System xử lý các hành vi lái xe (Steering Behaviors) như tránh va chạm
-import { Position } from '../components/Position.js';
-import { Velocity } from '../components/Velocity.js';
-import { Appearance } from '../components/Appearance.js';
+import { Position } from '../../../entities/components/common/Position.js';
+import { Velocity } from '../../../entities/components/common/Velocity.js';
+import { Appearance } from '../../../entities/components/common/Appearance.js';
 
 const AVOIDANCE_RADIUS = 40; // Bán kính nhường đường
 const MIN_DISTANCE = 18; // Khoảng cách tối thiểu giữa các đơn vị

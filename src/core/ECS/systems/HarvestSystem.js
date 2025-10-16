@@ -1,6 +1,6 @@
-import { ResourceNode } from '../components/ResourceNode.js';
-import { Harvester } from '../components/Harvester.js';
-import { ResourceStorage } from '../components/ResourceStorage.js';
+import { ResourceNode } from '../../../entities/components/resources/ResourceNode.js';
+import { Harvester } from '../../../entities/components/units/Harvester.js';
+import { ResourceStorage } from '../../../entities/components/resources/ResourceStorage.js';
 
 export class HarvestSystem {
     constructor(scene, resourceManager) {
@@ -110,12 +110,14 @@ export class HarvestSystem {
             }
 
         } else if (behavior.type === 'harvest') {
-            // Tìm tài nguyên gần nhất để thu hoạch
-            const nearestResource = this.findNearestResource(position, allEntities, harvester.harvestRange);
+            // Tìm tài nguyên gần nhất để thu hoạch (tìm trong phạm vi rộng hơn)
+            const searchRange = harvester.harvestRange * 3; // Tìm trong phạm vi 3x harvestRange
+            const nearestResource = this.findNearestResource(position, allEntities, searchRange);
             if (nearestResource) {
                 harvester.startHarvesting(nearestResource);
                 console.log(`🎯 ${entityId} bắt đầu thu hoạch ${nearestResource}`);
             } else {
+                console.log(`❌ ${entityId} không tìm thấy tài nguyên trong phạm vi ${searchRange}`);
                 behavior.setBehavior('idle');
             }
         }

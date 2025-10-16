@@ -1,32 +1,35 @@
 // Demo Scene với cơ chế điều khiển RTS
-import { ECSWorld } from '../ecs/world.js';
-import { MovementSystem } from '../ecs/systems/MovementSystem.js';
-import { RenderSystem } from '../ecs/systems/RenderSystem.js';
-import { BehaviorSystem } from '../ecs/systems/BehaviorSystem.js';
-import { AISystem } from '../ecs/systems/AISystem.js';
-import { CollisionSystem } from '../ecs/systems/CollisionSystem.js';
-import { EntityFactory } from '../ecs/EntityFactory.js';
-import { CombatSystem } from '../ecs/systems/CombatSystem.js';
-import { CombatResponseSystem } from '../ecs/systems/CombatResponseSystem.js';
-import { FogOfWarManager } from '../managers/FogOfWarManager.js';
-import { GridManager } from '../managers/GridManager.js';
-import { PathfindingManager } from '../managers/PathfindingManager.js';
-import { ResourceManager } from '../managers/ResourceManager.js';
-import { SteeringSystem } from '../ecs/systems/SteeringSystem.js';
-import { HarvestSystem } from '../ecs/systems/HarvestSystem.js';
-import { AnimationManager } from '../managers/AnimationManager.js';
-import { AnimationSystem } from '../ecs/systems/AnimationSystem.js';
-import { SpriteSheetManager } from '../managers/SpriteSheetManager.js';
+import { ECSWorld } from '../core/ECS/world.js';
+import { MovementSystem } from '../core/ECS/systems/MovementSystem.js';
+import { RenderSystem } from '../core/ECS/systems/RenderSystem.js';
+import { BehaviorSystem } from '../core/ECS/systems/BehaviorSystem.js';
+import { AISystem } from '../core/ECS/systems/AISystem.js';
+import { CollisionSystem } from '../core/ECS/systems/CollisionSystem.js';
+import { EntityFactory } from '../core/ECS/EntityFactory.js';
+import { CombatSystem } from '../core/ECS/systems/CombatSystem.js';
+import { CombatResponseSystem } from '../core/ECS/systems/CombatResponseSystem.js';
+import { SteeringSystem } from '../core/ECS/systems/SteeringSystem.js';
+import { HarvestSystem } from '../core/ECS/systems/HarvestSystem.js';
+import { AnimationSystem } from '../core/ECS/systems/AnimationSystem.js';
+//managers
+import { GridManager } from '../core/managers/GridManager.js';
+import { PathfindingManager } from '../core/managers/PathfindingManager.js';
+import { ResourceManager } from '../core/managers/ResourceManager.js';
+import { FogOfWarManager } from '../core/managers/FogOfWarManager.js';
+import { SpriteSheetManager } from '../core/managers/SpriteSheetManager.js';
+import { AnimationManager } from '../core/managers/AnimationManager.js';
+//commands
+import { CommandManager } from '../commands/CommandManager.js';
 
 // Components
-import { Position } from '../ecs/components/Position.js';
-import { Selectable } from '../ecs/components/Selectable.js';
-import { Selected } from '../ecs/components/Selected.js';
-import { PlayerUnit } from '../ecs/components/PlayerUnit.js';
-import { MoveTarget } from '../ecs/components/MoveTarget.js';
-import { Behavior } from '../ecs/components/Behavior.js';
-import { AI } from '../ecs/components/AI.js';
-import { DefencePosition } from '../ecs/components/DefencePosition.js';
+import { Position } from '../entities/components/common/Position.js';
+import { Selectable } from '../entities/components/common/Selectable.js';
+import { Selected } from '../entities/components/common/Selected.js';
+import { PlayerUnit } from '../entities/components/units/PlayerUnit.js';
+import { MoveTarget } from '../entities/components/units/MoveTarget.js';
+import { Behavior } from '../entities/components/units/Behavior.js';
+import { AI } from '../entities/components/units/AI.js';
+import { DefencePosition } from '../entities/components/units/DefencePosition.js';
 
 // Constants
 const WORLD_WIDTH = 3200;
@@ -113,6 +116,9 @@ export class DemoScene extends Phaser.Scene {
         this.spriteSheetManager.updateAnimationManager(this.animationManager);
         
         this.entityFactory = new EntityFactory(this.ecsWorld);
+        
+        // ⭐ Initialize Command Manager
+        this.commandManager = new CommandManager(this);
         
         // Create Units & Buildings
         this.createPlayerUnits();
@@ -238,6 +244,12 @@ export class DemoScene extends Phaser.Scene {
             const y = Phaser.Math.Between(80, WORLD_HEIGHT - 80);
             this.entityFactory.createAnimal(x, y, Phaser.Math.Between(150, 250));
         }
+        
+        // ⭐ Update pathfinding grid sau khi tạo xong tất cả resource nodes
+        if (this.pathfindingManager) {
+            this.pathfindingManager.updateGrid();
+            console.log('🗺️ Pathfinding grid updated after creating all resources');
+        }
     }
     
     
@@ -270,10 +282,13 @@ export class DemoScene extends Phaser.Scene {
         const resourceId = this.findResourceNodeAtWorldPoint(worldPoint);
         const targetId = this.findUnitIdAtWorldPoint(worldPoint);
         
+        console.log(`🎯 Right click behavior - Resource: ${resourceId}, Target: ${targetId}`);
+        
         // Xác định loại target
         let targetType = 'emptySpace';
         if (resourceId) {
             targetType = 'resourceNode';
+            console.log(`📦 Found resource node: ${resourceId}`);
         } else if (targetId) {
             const targetEntity = this.ecsWorld.entities.get(targetId);
             if (targetEntity) {
@@ -296,7 +311,10 @@ export class DemoScene extends Phaser.Scene {
             if (!entity) return;
             
             const clickBehavior = entity.get('clickBehavior');
-            if (!clickBehavior) return;
+            if (!clickBehavior) {
+                console.log(`❌ Unit ${entityId}: No clickBehavior component`);
+                return;
+            }
             
             const behavior = clickBehavior.getBehaviorForTarget(targetType);
             console.log(`🎯 Unit ${entityId}: ${targetType} → ${behavior}`);
@@ -304,21 +322,29 @@ export class DemoScene extends Phaser.Scene {
             // Thực hiện hành vi tương ứng
             switch (behavior) {
                 case 'chase':
-                    if (targetId) this.executeAttackCommand(targetId, worldPoint);
+                    console.log(`🎯 Unit ${entityId}: Chase behavior for target ${targetId}`);
+                    if (targetId) this.commandManager.executeAttack(targetId, worldPoint);
                     break;
                 case 'attack':
-                    if (targetId) this.executeAttackCommand(targetId, worldPoint);
+                    console.log(`🎯 Unit ${entityId}: Attack behavior for target ${targetId}`);
+                    if (targetId) this.commandManager.executeAttack(targetId, worldPoint);
                     break;
                 case 'harvest':
-                    if (resourceId) this.executeHarvestResourceCommand(resourceId, worldPoint);
-                    else this.executeHarvestCommand(worldPoint);
+                    console.log(`🌾 Unit ${entityId}: Executing harvest behavior`);
+                    if (resourceId) {
+                        console.log(`🌾 Unit ${entityId}: Harvesting specific resource ${resourceId}`);
+                        this.commandManager.executeHarvestResource(resourceId, worldPoint);
+                    } else {
+                        console.log(`🌾 Unit ${entityId}: Harvesting near location`);
+                        this.commandManager.executeHarvest(worldPoint);
+                    }
                     break;
                 case 'fix':
-                    if (targetId) this.executeFixCommand(targetId, worldPoint);
+                    if (targetId) this.commandManager.executeFix(targetId, worldPoint);
                     break;
                 case 'move':
                 default:
-                    this.executeMoveCommand(worldPoint);
+                    this.commandManager.executeMove(worldPoint);
                     break;
             }
         });
@@ -475,7 +501,7 @@ export class DemoScene extends Phaser.Scene {
         
         // For Stop command, execute immediately (không cần click)
         if (commandKey === 'stop') {
-            this.executeStopCommand();
+            this.commandManager.executeStop();
             this.currentCommand = null;
             this.input.setDefaultCursor('default');
             if (this.uiScene) {
@@ -627,8 +653,11 @@ export class DemoScene extends Phaser.Scene {
         
         // ⭐ Handle right mouse button
         if (pointer.rightButtonDown()) {
+            console.log(`🖱️ Right click - Command: ${this.currentCommand}, Selected: ${this.selectedEntities.size}`);
+            
             // Nếu có command active và có unit được chọn → EXECUTE command
             if (this.currentCommand && this.selectedEntities.size > 0) {
+                console.log(`🎮 Executing command: ${this.currentCommand}`);
                 this.handleCommandExecution(worldPoint);
                 return;
             }
@@ -648,8 +677,11 @@ export class DemoScene extends Phaser.Scene {
             
             // Nếu KHÔNG có command và có unit được chọn → EXECUTE behavior
             if (this.selectedEntities.size > 0) {
+                console.log(`🎯 Executing right click behavior`);
                 // ⭐ NEW: Sử dụng ClickBehavior system
                 this.executeRightClickBehavior(worldPoint);
+            } else {
+                console.log(`❌ No units selected for right click behavior`);
             }
         }
     }
@@ -776,33 +808,33 @@ export class DemoScene extends Phaser.Scene {
                 const targetId = this.findUnitIdAtWorldPoint(worldPoint);
                 if (targetId) {
                     // Click vào enemy → Attack target
-                    this.executeAttackCommand(targetId, worldPoint);
+                    this.commandManager.executeAttack(targetId, worldPoint);
                 } else {
                     // Click vào vùng trống → Attack-Move (di chuyển + auto-attack enemies trên đường)
-                    this.executeAttackMoveCommand(worldPoint);
+                    this.commandManager.executeAttackMove(worldPoint);
                 }
                 break;
                 
             case 'stop':
-                this.executeStopCommand();
+                this.commandManager.executeStop();
                 break;
                 
             case 'defence':
-                this.executeDefenceCommand(worldPoint);
+                this.commandManager.executeDefence(worldPoint);
                 break;
                 
             case 'patrol':
-                this.executePatrolCommand(worldPoint);
+                this.commandManager.executePatrol(worldPoint);
                 break;
                 
             case 'harvest':
                 const resourceId = this.findResourceNodeAtWorldPoint(worldPoint);
                 if (resourceId) {
                     // Click vào mỏ tài nguyên cụ thể → Thu hoạch mỏ đó
-                    this.executeHarvestResourceCommand(resourceId, worldPoint);
+                    this.commandManager.executeHarvestResource(resourceId, worldPoint);
                 } else {
                     // Click vào vùng trống → Tìm tài nguyên gần nhất
-                    this.executeHarvestCommand(worldPoint);
+                    this.commandManager.executeHarvest(worldPoint);
                 }
                 break;
         }
@@ -812,342 +844,6 @@ export class DemoScene extends Phaser.Scene {
         if (this.uiScene) {
             this.uiScene.resetCommand();
         }
-    }
-    
-    // ⭐ A - Attack Command
-    executeAttackCommand(targetId, worldPoint) {
-        console.log(`⚔️ Attack command: ${this.selectedEntities.size} units → Target ${targetId}`);
-        
-        this.currentAttackTargetId = targetId;
-        this.renderSystem.setCurrentAttackTarget(targetId);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const ai = entity.get('ai');
-            const behavior = entity.get('behavior');
-            
-            if (ai && behavior) {
-                ai.setTargetId(targetId);
-                behavior.setBehavior('chase', { manualAttack: true });
-                
-                // Clear other command components
-                this.ecsWorld.removeComponent(entityId, 'moveTarget');
-                this.ecsWorld.removeComponent(entityId, 'defencePosition');
-            }
-        });
-    }
-    
-    // ⭐ A - Attack-Move Command (to empty space)
-    executeAttackMoveCommand(worldPoint) {
-        console.log(`⚔️🚶 Attack-Move command: ${this.selectedEntities.size} units → (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-        
-        // ⭐ TÌM Ô TRỐNG GẦN NHẤT
-        const clickedGridPos = this.gridManager.worldToGrid(worldPoint.x, worldPoint.y);
-        const nearestWalkable = this.gridManager.findNearestWalkableTile(clickedGridPos.x, clickedGridPos.y);
-        const endGridPos = new Phaser.Math.Vector2(nearestWalkable.x, nearestWalkable.y);
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const ai = entity.get('ai');
-            const behavior = entity.get('behavior');
-            const pos = entity.get('position');
-            
-            if (ai && behavior && pos) {
-                // Clear any previous target
-                ai.clearTarget();
-                
-                // Set pathfinding to destination
-                const startGridPos = this.gridManager.worldToGrid(pos.x, pos.y);
-                this.pathfindingManager.findPath(startGridPos, endGridPos, (path) => {
-                    if (path) {
-                        ai.setPath(path);
-                        // Set followPath behavior with manualAttack flag (auto-attack enemies on the way)
-                        behavior.setBehavior('followPath', { manualAttack: true });
-                    }
-                });
-                
-                // Clear other command components
-                this.ecsWorld.removeComponent(entityId, 'moveTarget');
-                this.ecsWorld.removeComponent(entityId, 'defencePosition');
-                
-                console.log(`  Unit ${entityId}: ATTACK-MOVING to (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-            }
-        });
-    }
-    
-    // ⭐ S - Stop Command
-    executeStopCommand() {
-        console.log(`🛑 Stop command: ${this.selectedEntities.size} units`);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const ai = entity.get('ai');
-            const behavior = entity.get('behavior');
-            const position = entity.get('position');
-            
-            if (ai && behavior && position) {
-                // Stop movement
-                const velocity = entity.get('velocity');
-                if (velocity) {
-                    velocity.x = 0;
-                    velocity.y = 0;
-                }
-                
-                // Clear targets
-                ai.clearTarget();
-                
-                // Set to "aggressive stance" - sẽ tự động phản công
-                behavior.setBehavior('idle'); // AISystem sẽ tự động tìm enemies gần
-                
-                // Clear other components
-                this.ecsWorld.removeComponent(entityId, 'moveTarget');
-                this.ecsWorld.removeComponent(entityId, 'defencePosition');
-                
-                console.log(`  Unit ${entityId}: STOPPED at (${position.x.toFixed(0)}, ${position.y.toFixed(0)})`);
-            }
-        });
-    }
-    
-    // ⭐ D - Defence Command
-    executeDefenceCommand(worldPoint) {
-        console.log(`🛡️ Defence command: ${this.selectedEntities.size} units at (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-        
-        // ⭐ TÌM Ô TRỐNG GẦN NHẤT
-        const clickedGridPos = this.gridManager.worldToGrid(worldPoint.x, worldPoint.y);
-        const nearestWalkable = this.gridManager.findNearestWalkableTile(clickedGridPos.x, clickedGridPos.y);
-        const safeWorldPos = this.gridManager.gridToWorldCenter(nearestWalkable.x, nearestWalkable.y);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const position = entity.get('position');
-            const behavior = entity.get('behavior');
-            const ai = entity.get('ai');
-            
-            if (position && behavior) {
-                // Set defence position (sử dụng vị trí an toàn)
-                const defenceX = safeWorldPos.x;
-                const defenceY = safeWorldPos.y;
-                
-                const defencePosition = new DefencePosition(defenceX, defenceY, 100);
-                this.ecsWorld.addComponent(entityId, 'defencePosition', defencePosition);
-                
-                // Set behavior to defence
-                behavior.setBehavior('defence');
-                
-                // Clear other components
-                if (ai) ai.clearTarget();
-                this.ecsWorld.removeComponent(entityId, 'moveTarget');
-                
-                console.log(`  Unit ${entityId}: DEFENDING at (${defenceX.toFixed(0)}, ${defenceY.toFixed(0)})`);
-            }
-        });
-    }
-    
-    // ⭐ P - Patrol Command
-    executePatrolCommand(worldPoint) {
-        console.log(`🚶 Patrol command: ${this.selectedEntities.size} units from current position to (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-        
-        // ⭐ TÌM Ô TRỐNG GẦN NHẤT
-        const clickedGridPos = this.gridManager.worldToGrid(worldPoint.x, worldPoint.y);
-        const nearestWalkable = this.gridManager.findNearestWalkableTile(clickedGridPos.x, clickedGridPos.y);
-        const safeWorldPos = this.gridManager.gridToWorldCenter(nearestWalkable.x, nearestWalkable.y);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const position = entity.get('position');
-            const behavior = entity.get('behavior');
-            const ai = entity.get('ai');
-            
-            if (position && behavior) {
-                // Patrol start point = current position, end point = safe position
-                const patrolPoints = [
-                    { x: position.x, y: position.y },
-                    { x: safeWorldPos.x, y: safeWorldPos.y }
-                ];
-                
-                behavior.setBehavior('patrol', { 
-                    patrolPoints,
-                    currentTarget: 1 // Start by moving to point B (index 1)
-                });
-                
-                console.log(`  Unit ${entityId}: PATROLLING from (${position.x.toFixed(0)}, ${position.y.toFixed(0)}) to (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-                
-                // Clear other components
-                if (ai) ai.clearTarget();
-                this.ecsWorld.removeComponent(entityId, 'moveTarget');
-                this.ecsWorld.removeComponent(entityId, 'defencePosition');
-            }
-        });
-    }
-    
-    // ⭐ H - Harvest Command (từ hotkey)
-    executeHarvestCommand(worldPoint) {
-        console.log(`🌾 Harvest command: ${this.selectedEntities.size} units to harvest near (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const harvester = entity.get('harvester');
-            if (!harvester) {
-                console.log(`  Unit ${entityId}: Not a harvester unit, skipping`);
-                return;
-            }
-            
-            const behavior = entity.get('behavior');
-            if (behavior) {
-                // Set harvest behavior - unit sẽ tự động tìm tài nguyên gần nhất
-                behavior.setBehavior('harvest');
-                
-                console.log(`  Unit ${entityId}: HARVESTING resources near (${worldPoint.x.toFixed(0)}, ${worldPoint.y.toFixed(0)})`);
-                
-                // Clear other components
-                const ai = entity.get('ai');
-                if (ai) ai.clearTarget();
-                this.ecsWorld.removeComponent(entityId, 'moveTarget');
-                this.ecsWorld.removeComponent(entityId, 'defencePosition');
-            }
-        });
-    }
-
-    // ⭐ HÀM MỚI: Fix command (sửa chữa building)
-    executeFixCommand(targetId, worldPoint) {
-        console.log(`🔧 Fix command: ${this.selectedEntities.size} units → Fix building ${targetId}`);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            const behavior = entity.get('behavior');
-            const ai = entity.get('ai');
-            const position = entity.get('position');
-            
-            // TODO: Implement fix behavior
-            console.log(`  Unit ${entityId}: FIXING building ${targetId}`);
-            // Tạm thời di chuyển đến building
-            this.executeMoveCommand(worldPoint);
-        });
-    }
-
-    // ⭐ Harvest Resource Command (từ click chuột phải vào mỏ tài nguyên)
-    executeHarvestResourceCommand(resourceId, worldPoint) {
-        console.log(`🌾 Harvest resource command: ${this.selectedEntities.size} units → Resource ${resourceId}`);
-        
-        // ⭐ Highlight mỏ tài nguyên
-        this.currentHarvestTargetId = resourceId;
-        this.renderSystem.setCurrentHarvestTarget(resourceId);
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const harvester = entity.get('harvester');
-            if (!harvester) {
-                console.log(`  Unit ${entityId}: Not a harvester unit, skipping`);
-                return;
-            }
-            
-            const behavior = entity.get('behavior');
-            const position = entity.get('position');
-            const appearance = entity.get('appearance');
-            if (!behavior || !position) return;
-            
-            // Lấy vị trí của mỏ tài nguyên
-            const resourceEntity = this.ecsWorld.entities.get(resourceId);
-            if (!resourceEntity) return;
-            
-            const resourcePos = resourceEntity.get('position');
-            const resourceAppearance = resourceEntity.get('appearance');
-            if (!resourcePos) return;
-            
-            // ⭐ Set target resource ID trước khi di chuyển
-            harvester.targetResourceId = resourceId;
-            
-            // Di chuyển đến mỏ tài nguyên và thu hoạch
-            const dx = resourcePos.x - position.x;
-            const dy = resourcePos.y - position.y;
-            const centerDistance = Math.sqrt(dx * dx + dy * dy);
-            
-            // ⭐ Tính khoảng cách từ MÉP (edge-to-edge)
-            const harvesterSize = appearance ? appearance.size : 10;
-            const resourceSize = resourceAppearance ? resourceAppearance.size : 10;
-            const edgeDistance = centerDistance - harvesterSize - resourceSize;
-            
-            console.log(`  Unit ${entityId}: Distance - center=${centerDistance.toFixed(0)}, edge=${edgeDistance.toFixed(0)}, range=${harvester.harvestRange}`);
-            
-            if (edgeDistance <= harvester.harvestRange) {
-                // Đã đủ gần, bắt đầu thu hoạch ngay
-                harvester.startHarvesting(resourceId);
-                behavior.setBehavior('harvest');
-                console.log(`  Unit ${entityId}: START HARVESTING resource ${resourceId}`);
-            } else {
-                // Di chuyển đến gần mỏ tài nguyên
-                const ai = entity.get('ai');
-                if (ai) {
-                    const startGridPos = this.gridManager.worldToGrid(position.x, position.y);
-                    const endGridPos = this.gridManager.worldToGrid(resourcePos.x, resourcePos.y);
-                    
-                    this.pathfindingManager.findPath(startGridPos, endGridPos, (path) => {
-                        if (path) {
-                            ai.setPath(path);
-                            behavior.setBehavior('followPath', { targetResourceId: resourceId }); // Ghi nhớ mỏ tài nguyên trong behavior
-                            console.log(`  Unit ${entityId}: MOVING to resource ${resourceId}`);
-                        }
-                    });
-                }
-            }
-            
-            // Clear other components
-            const ai = entity.get('ai');
-            if (ai) ai.clearTarget();
-            this.ecsWorld.removeComponent(entityId, 'moveTarget');
-            this.ecsWorld.removeComponent(entityId, 'defencePosition');
-        });
-    }
-    
-    // ⭐ Helper: Move Command (default right-click)
-    executeMoveCommand(worldPoint) {
-        this.currentAttackTargetId = null;
-        this.renderSystem.setCurrentAttackTarget(null);
-        this.currentHarvestTargetId = null;
-        this.renderSystem.setCurrentHarvestTarget(null);
-        
-        // ⭐ TÌM Ô TRỐNG GẦN NHẤT để tránh click vào building
-        const clickedGridPos = this.gridManager.worldToGrid(worldPoint.x, worldPoint.y);
-        const nearestWalkable = this.gridManager.findNearestWalkableTile(clickedGridPos.x, clickedGridPos.y);
-        const endGridPos = new Phaser.Math.Vector2(nearestWalkable.x, nearestWalkable.y);
-        
-        // Log để debug
-        if (nearestWalkable.x !== clickedGridPos.x || nearestWalkable.y !== clickedGridPos.y) {
-            console.log(`🚫 Click vào ô bị chiếm (${clickedGridPos.x}, ${clickedGridPos.y}), chuyển sang ô trống (${nearestWalkable.x}, ${nearestWalkable.y})`);
-        }
-        
-        this.selectedEntities.forEach(entityId => {
-            const entity = this.ecsWorld.entities.get(entityId);
-            if (!entity) return;
-            
-            const ai = entity.get('ai');
-            if (ai) ai.clearTarget();
-            
-            const pos = entity.get('position');
-            const startGridPos = this.gridManager.worldToGrid(pos.x, pos.y);
-            this.pathfindingManager.findPath(startGridPos, endGridPos, (path) => {
-                if (path) {
-                    ai.setPath(path);
-                    entity.get('behavior').setBehavior('followPath');
-                }
-            });
-            
-            // Clear defence position
-            this.ecsWorld.removeComponent(entityId, 'defencePosition');
-        });
     }
 
     shutdown() {

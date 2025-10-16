@@ -1,22 +1,22 @@
 // Factory để tạo các entity với hành vi khác nhau
-import { Position } from './components/Position.js';
-import { Velocity } from './components/Velocity.js';
-import { Health } from './components/Health.js';
-import { Behavior } from './components/Behavior.js';
-import { Appearance } from './components/Appearance.js';
-import { AI } from './components/AI.js';
-import { Selectable } from './components/Selectable.js';
-import { PlayerUnit } from './components/PlayerUnit.js';
-import { Building } from './components/Building.js';
-import { CombatStats } from './components/CombatStats.js';
-import { Faction } from './components/Faction.js'; // ⭐ NEW: Faction component
-import { ResourceNode } from './components/ResourceNode.js'; // ⭐ NEW: Resource management
-import { Harvester } from './components/Harvester.js';
-import { ResourceStorage } from './components/ResourceStorage.js';
-import { EntityType } from './components/EntityType.js'; // ⭐ NEW: Entity type classification
-import { ClickBehavior, ClickBehaviorFactory } from './components/ClickBehavior.js'; // ⭐ NEW: Click behavior management
-import { CombatResponse } from './components/CombatResponse.js'; // ⭐ NEW: Combat response management
-import { Animation } from './components/Animation.js'; // ⭐ NEW: Animation component
+import { Position } from '../../entities/components/common/Position.js';
+import { Velocity } from '../../entities/components/common/Velocity.js';
+import { Health } from '../../entities/components/common/Health.js';
+import { Behavior } from '../../entities/components/units/Behavior.js';
+import { Appearance } from '../../entities/components/common/Appearance.js';
+import { AI } from '../../entities/components/units/AI.js';
+import { Selectable } from '../../entities/components/common/Selectable.js';
+import { PlayerUnit } from '../../entities/components/units/PlayerUnit.js';
+import { Building } from '../../entities/components/buildings/Building.js';
+import { CombatStats } from '../../entities/components/units/CombatStats.js';
+import { Faction } from '../../entities/components/common/Faction.js'; // ⭐ NEW: Faction component
+import { ResourceNode } from '../../entities/components/resources/ResourceNode.js'; // ⭐ NEW: Resource management
+import { Harvester } from '../../entities/components/units/Harvester.js';
+import { ResourceStorage } from '../../entities/components/resources/ResourceStorage.js';
+import { EntityType } from '../../entities/components/common/EntityType.js'; // ⭐ NEW: Entity type classification
+import { ClickBehavior, ClickBehaviorFactory } from '../../entities/components/common/ClickBehavior.js'; // ⭐ NEW: Click behavior management
+import { CombatResponse } from '../../entities/components/units/CombatResponse.js'; // ⭐ NEW: Combat response management
+import { Animation } from '../../entities/components/common/Animation.js'; // ⭐ NEW: Animation component
 
 
 export class EntityFactory {
@@ -115,7 +115,7 @@ export class EntityFactory {
         this.ecsWorld.addComponent(entityId, 'ai', new AI('idle', { speed: 120 }));
         this.ecsWorld.addComponent(entityId, 'selectable', new Selectable());
         this.ecsWorld.addComponent(entityId, 'playerUnit', new PlayerUnit());
-        this.ecsWorld.addComponent(entityId, 'harvester', new Harvester(100, 30)); // Sức chứa 100, tầm 30
+        this.ecsWorld.addComponent(entityId, 'harvester', new Harvester(100, 150)); // Sức chứa 100, tầm 150
         this.ecsWorld.addComponent(entityId, 'resourceStorage', new ResourceStorage());
         this.ecsWorld.addComponent(entityId, 'entityType', new EntityType('unit')); // ⭐ NEW: Unit type
         this.ecsWorld.addComponent(entityId, 'clickBehavior', ClickBehaviorFactory.createHarvesterBehavior()); // ⭐ NEW: Click behavior
@@ -354,6 +354,8 @@ export class EntityFactory {
         const gridY = Math.floor(y / tileSize);
         this.ecsWorld.scene.gridManager.setTileOccupied(gridX, gridY, entityId);
         
+        // ⭐ Note: Grid will be updated after all resources are created
+        
         console.log(`🌲 Created tree at (${x}, ${y}) with ${woodAmount} wood`);
         return entityId;
     }
@@ -374,6 +376,8 @@ export class EntityFactory {
         const gridX = Math.floor(x / tileSize);
         const gridY = Math.floor(y / tileSize);
         this.ecsWorld.scene.gridManager.setTileOccupied(gridX, gridY, entityId);
+        
+        // ⭐ Note: Grid will be updated after all resources are created
         
         console.log(`💰 Created gold mine at (${x}, ${y}) with ${goldAmount} gold`);
         return entityId;
@@ -396,6 +400,8 @@ export class EntityFactory {
         const gridY = Math.floor(y / tileSize);
         this.ecsWorld.scene.gridManager.setTileOccupied(gridX, gridY, entityId);
         
+        // ⭐ Note: Grid will be updated after all resources are created
+        
         console.log(`⚪ Created silver mine at (${x}, ${y}) with ${silverAmount} silver`);
         return entityId;
     }
@@ -417,6 +423,8 @@ export class EntityFactory {
         const gridY = Math.floor(y / tileSize);
         this.ecsWorld.scene.gridManager.setTileOccupied(gridX, gridY, entityId);
         
+        // ⭐ Note: Grid will be updated after all resources are created
+        
         console.log(`🧱 Created stone mine at (${x}, ${y}) with ${stoneAmount} stone`);
         return entityId;
     }
@@ -437,6 +445,8 @@ export class EntityFactory {
         const gridX = Math.floor(x / tileSize);
         const gridY = Math.floor(y / tileSize);
         this.ecsWorld.scene.gridManager.setTileOccupied(gridX, gridY, entityId);
+        
+        // ⭐ Note: Grid will be updated after all resources are created
         
         console.log(`💧 Created water source at (${x}, ${y}) with ${waterAmount} water`);
         return entityId;
