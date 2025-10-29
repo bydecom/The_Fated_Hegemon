@@ -207,4 +207,4 @@ Game sử dụng kiến trúc Entity Component System với các thành phần c
 
 ---
 
-*Tài liệu này được cập nhật lần cuối: Tháng 12, 2024*
+*Tài liệu này được cập nhật lần cuối: Tháng 10, 2025
